@@ -49,8 +49,7 @@ impl<'a> Module<'a> {
             println!("tx fiber started");
 
             let mut seq = 0;
-            // while self.is_running.load(Ordering::SeqCst) == State::Running as i8 {
-            loop {
+            while is_running.load(Ordering::SeqCst) == State::Running as i8 {
                 let ts: u64 = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
@@ -76,8 +75,10 @@ impl<'a> Module<'a> {
             0
         });
         tx_fiber.set_joinable(true);
-        tx_fiber.start(());
 
+
+        self.is_running.store(State::Running as i8, Ordering::SeqCst);
+        tx_fiber.start(());
         let module_thread = thread::Builder::new()
             .name("module".to_string())
             .spawn(|| {
@@ -94,12 +95,15 @@ impl<'a> Module<'a> {
     }
 
     pub fn stop(&mut self) {
-        self.module_thread
-            .take().unwrap()
-            .join().unwrap();
-        self.tx_fiber
-            .take().unwrap()
-            .join();
+        if self.is_running.load(Ordering::SeqCst) == State::Running as i8 {
+            self.is_running.store(State::Stopped as i8, Ordering::SeqCst);
+            self.module_thread
+                .take().unwrap()
+                .join().unwrap();
+            self.tx_fiber
+                .take().unwrap()
+                .join();
+        }
     }
 
     async fn module_main<F, Fut>(rx: std::sync::mpsc::Receiver<F>, pipe_rx: os_pipe::PipeReader)
