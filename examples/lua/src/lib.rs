@@ -1,18 +1,24 @@
-use std::{rc::Rc, sync::Arc, os::unix::io::AsRawFd, sync::atomic::{AtomicI8, Ordering}, time::{SystemTime, UNIX_EPOCH}, io::{Read, Write}, future::Future, cell::RefCell, thread, time, io, fmt};
-use std::collections::VecDeque;
-
-use tarantool::{fiber::Fiber, ffi::tarantool::{CoIOFlags}, coio::coio_wait, fiber};
-
+use std::{
+    rc::Rc,
+    sync::Arc,
+    os::unix::io::AsRawFd,
+    sync::atomic::{AtomicI8, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+    io::{Read, Write},
+    future::Future,
+    cell::RefCell,
+    thread,
+    io,
+    fmt,
+};
+use tarantool::{ffi::tarantool::{CoIOFlags}, coio::coio_wait, fiber};
 use tokio::{
     runtime,
     io::unix::AsyncFd,
     io::Interest,
 };
-
 use os_pipe::pipe;
 use mlua::prelude::*;
-use tarantool::fiber::fiber_yield;
-use tarantool::ffi::tarantool::fiber_sleep;
 
 
 enum State {
@@ -25,7 +31,7 @@ struct Module<'a> {
     is_running: Arc<AtomicI8>,
 
     module_thread: Option<thread::JoinHandle<()>>,
-    tx_fiber: Option<tarantool::fiber::Fiber<'a, ()>>,
+    tx_fiber: Option<fiber::Fiber<'a, ()>>,
 }
 
 impl<'a> Module<'a> {
@@ -40,11 +46,12 @@ impl<'a> Module<'a> {
 
     pub fn cfg(&mut self) {
         let (module_tx, module_rx) = std::sync::mpsc::channel();
-        let (module_waiter, mut module_notifier) = pipe().unwrap();
+        let (module_waiter, module_notifier) = pipe().unwrap();
 
-        let mut tx_fiber = Fiber::new("tx_fiber", &mut |_| {
-            let mut module_tx = module_tx.clone();
+        let mut tx_fiber = fiber::Fiber::new("tx_fiber", &mut |_| {
+            let module_tx = module_tx.clone();
             let mut module_notifier = module_notifier.try_clone().unwrap();
+            let is_running = self.is_running.clone();
 
             println!("tx fiber started");
 
@@ -106,23 +113,23 @@ impl<'a> Module<'a> {
         }
     }
 
-    async fn module_main<F, Fut>(rx: std::sync::mpsc::Receiver<F>, pipe_rx: os_pipe::PipeReader)
-        where
-            F: FnOnce() -> Fut,
-            Fut: Future<Output=()>,
-    {
-        use std::borrow::Borrow;
-        let notifier = AsyncFd::with_interest(pipe_rx, Interest::READABLE).unwrap();
-        loop {
-            let func: F = Self::recv(rx.borrow(), notifier.borrow()).await.unwrap();
-            func().await;
+        async fn module_main<F, Fut>(rx: std::sync::mpsc::Receiver<F>, pipe_rx: os_pipe::PipeReader)
+            where
+                F: FnOnce() -> Fut,
+                Fut: Future<Output=()>,
+        {
+            use std::borrow::Borrow;
+            let pipe_rx_async = AsyncFd::with_interest(pipe_rx, Interest::READABLE).unwrap();
+            loop {
+                let func: F = Self::recv(rx.borrow(), pipe_rx_async.borrow()).await.unwrap();
+                func().await;
+            }
         }
-    }
 
-    async fn recv<T>(rx: &std::sync::mpsc::Receiver<T>, notifier: &AsyncFd<os_pipe::PipeReader>) -> io::Result<T> {
+    async fn recv<T>(rx: &std::sync::mpsc::Receiver<T>, pipe_rx_async: &AsyncFd<os_pipe::PipeReader>) -> io::Result<T> {
         let mut buffer = [0; 8];
         loop {
-            let mut guard = notifier.readable().await?;
+            let mut guard = pipe_rx_async.readable().await?;
             match guard.try_io(|inner| inner.get_ref().read(&mut buffer)) {
                 Ok(size) => if size.unwrap() > 0 {
                     return Ok(rx.recv().unwrap());
@@ -130,17 +137,6 @@ impl<'a> Module<'a> {
                 Err(_would_block) => continue,
             }
         }
-    }
-}
-
-struct Msg {
-    seq: u64,
-    ts: u64,
-}
-
-impl fmt::Display for Msg {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}, {})", self.seq, self.ts)
     }
 }
 
@@ -165,21 +161,6 @@ fn liblua(lua: &Lua) -> LuaResult<LuaTable> {
             Ok(())
         })?
     })?;
-
-    exports.set("with_yield", lua.create_function_mut(move |_: &Lua, _: ()| {
-        let mut fiber = Fiber::new("test_fiber", &mut |_| {
-            loop {
-                println!("test");
-                fiber::sleep(1.0);
-            }
-            0
-        });
-        fiber.set_joinable(true);
-        fiber.start(());
-        fiber.join();
-
-        Ok("ok")
-    })?)?;
 
     Ok(exports)
 }
