@@ -1,0 +1,24 @@
+[package]
+name = "txapi"
+version = "0.1.0"
+authors = ["Oleg Utkin <o.utkin@corp.mail.ru>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+os_pipe = "0.9.2"
+tarantool = "0.4"
+async-channel = "1.6"
+
+[dependencies.mlua]
+version = "0.5"
+features = ["luajit", "module", "serialize"]
+
+[dependencies.tokio]
+version = "1"
+features = ["net", "full"]
+
+[lib]
+name = "txapi"
+crate-type = ["cdylib"]
