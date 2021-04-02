@@ -1,93 +1,49 @@
 use mlua::prelude::*;
-use tokio::sync::oneshot;
-use async_channel;
-use tokio::sync::oneshot::error::RecvError;
-use async_channel::TryRecvError;
+use xtm_rust::txapi::{tx_channel, Executor, Dispatcher, ExecError};
 use tokio::runtime;
+use tokio::time::Instant;
 
-type Task<F, R> = (F, oneshot::Sender<R>);
-type TaskTX<F, R> = async_channel::Sender<Task<F, R>>;
 
-pub struct Dispatcher<F, R> {
-    task_tx: TaskTX<F, R>,
-}
+type R = i32;
+type F = Box<dyn FnOnce() -> R + Send + 'static>;
 
-impl<F, R> Dispatcher<F, R> where F: FnOnce() -> R + Send + 'static {
-    pub fn new(task_tx: TaskTX<F, R>) -> Dispatcher<F, R> {
-        Dispatcher { task_tx }
+async fn module_main(dispatcher: Dispatcher<F, R>) {
+    let iterations = 1_000_000;
+
+    let now = Instant::now();
+    for _ in 0..iterations {
+        let result = dispatcher.call(Box::new(move || {
+            100
+        })).await.unwrap();
+        assert_eq!(result, 100);
     }
 
-    pub async fn call(&self, func: F) -> Result<R, RecvError> {
-        let (result_tx, result_rx) = oneshot::channel();
-        self.task_tx.send((func, result_tx)).await.unwrap();
-        result_rx.await
-    }
+    let elapsed = now.elapsed().as_nanos();
+    let avg = elapsed / iterations;
+    println!("iterations: {} | elapsed: {}ns | avg per cycle: {}ns", iterations, elapsed, avg);
 }
 
-type TaskRX<F, R> = async_channel::Receiver<(F, oneshot::Sender<R>)>;
-
-pub struct Executor<F, R> {
-    task_rx: TaskRX<F, R>,
-}
-
-#[derive(Debug)]
-pub enum ExecError {
-    RXChannelClosed,
-    TXChannelClosed,
-}
-
-impl<F, R> Executor<F, R> where F: FnOnce() -> R + Send + 'static {
-    pub fn new(task_rx: TaskRX<F, R>) -> Executor<F, R> {
-        Executor { task_rx }
-    }
-
-    pub fn exec(&self) -> Result<(), ExecError> {
-        let (func, result_tx) = loop {
-            match self.task_rx.try_recv() {
-                Ok(result) => break result,
-                Err(TryRecvError::Empty) => {
-                    // coio_wait
-                    tarantool::fiber::fiber_yield();
-                    continue;
-                }
-                Err(TryRecvError::Closed) => return Err(ExecError::RXChannelClosed),
-            };
-        };
-
-        let result: R = func();
-        if let Err(_) = result_tx.send(result) {
-            return Err(ExecError::TXChannelClosed);
+fn tx_main(executor: Box<Executor<F, R>>) -> i32 {
+    loop {
+        match executor.exec() {
+            Ok(_) => {}
+            Err(ExecError::RXChannelClosed) => {
+                break 0;
+            }
+            Err(err) => {
+                println!("{:#?}", err);
+                break 1;
+            }
         }
-        Ok(())
     }
-}
-
-pub fn tx_channel<F, R>(buffer: usize) -> (Dispatcher<F, R>, Executor<F, R>)
-    where F: FnOnce() -> R + Send + 'static
-{
-    let (task_tx, task_rx) = async_channel::bounded(buffer);
-    (Dispatcher::new(task_tx), Executor::new(task_rx))
-}
-
-async fn module_main(dispatcher: Dispatcher<Box<dyn FnOnce() -> i32 + Send + 'static>, i32>) {
-    dispatcher.call(Box::new(move || {
-        println!("it works!");
-        0
-    })).await.unwrap();
 }
 
 #[mlua::lua_module]
 fn libtxapi(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
-    type R = i32;
-    type F = Box<dyn FnOnce() -> R + Send + 'static>;
-
-    exports.set("start", lua.create_function_mut(|_: &Lua, _: ()| {
-        let (
-            dispatcher,
-            executor,
-        ) = tx_channel::<F, R>(128);
+    exports.set("start", lua.create_function_mut(|_: &Lua, (buffer, ): (usize, )| {
+        let (dispatcher, executor) = tx_channel(buffer);
 
         let module_thread = std::thread::Builder::new()
             .name("module".to_string())
@@ -100,23 +56,12 @@ fn libtxapi(lua: &Lua) -> LuaResult<LuaTable> {
             })
             .unwrap();
 
-        let mut tx_fiber = tarantool::fiber::Fiber::new("module_tx", &mut |executor: Box<Executor<F, R>>| {
-            loop {
-                match executor.exec() {
-                    Ok(_) => {}
-                    Err(err) => {
-                        println!("{:#?}", err);
-                        break;
-                    }
-                }
-            }
-            0
-        });
+        let mut tx_fiber = tarantool::fiber::Fiber::new("module_tx", &mut tx_main);
         tx_fiber.set_joinable(true);
         tx_fiber.start(executor);
 
-        module_thread.join().unwrap();
         tx_fiber.join();
+        module_thread.join().unwrap();
         Ok(())
     })?)?;
 

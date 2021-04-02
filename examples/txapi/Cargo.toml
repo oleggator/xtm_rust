@@ -19,6 +19,9 @@ features = ["luajit", "module", "serialize"]
 version = "1"
 features = ["net", "full"]
 
+[dependencies.xtm_rust]
+path = "../.."
+
 [lib]
 name = "txapi"
 crate-type = ["cdylib"]

@@ -1,3 +1,5 @@
+pub mod txapi;
+
 #[cfg(test)]
 mod tests {
     #[test]
