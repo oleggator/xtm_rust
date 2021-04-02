@@ -10,6 +10,7 @@ edition = "2018"
 os_pipe = "0.9.2"
 tarantool = "0.4"
 async-channel = "1.6"
+serde = "1.0"
 
 [dependencies.mlua]
 version = "0.5"
@@ -21,6 +22,7 @@ features = ["net", "full"]
 
 [dependencies.xtm_rust]
 path = "../.."
+
 
 [lib]
 name = "txapi"
