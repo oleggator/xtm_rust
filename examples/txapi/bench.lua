@@ -19,12 +19,12 @@ local tuple = { 1, 'some_string' }
 local iteration = 1000000
 
 -- TODO fix result calculation
-local begin = clock.time64() * 1000
+local begin = clock.time64()
 for _ = 1, iteration do
     space:replace(tuple)
 end
-local elapsed = clock.time64() * 1000 - begin
+local elapsed = clock.time64() - begin
 local per_cycle = elapsed / iteration
-print('iteration:', iteration, 'elapsed:', elapsed, 'avg per cycle:', per_cycle)
+print('iterations: ' .. tostring(iteration) .. ' | elapsed: ' .. tostring(elapsed) .. 'ns | avg per cycle: ' .. tostring(per_cycle) .. 'ns')
 
 require('console'):start()
