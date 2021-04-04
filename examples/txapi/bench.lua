@@ -1,5 +1,6 @@
 box.cfg {
     wal_mode = 'none',
+    log_level = 0,
 }
 local space = box.schema.space.create('some_space', {
     if_not_exists = true,
@@ -11,17 +12,15 @@ space:create_index('pk', {
 
 print('Rust module:')
 local txapi = require('libtxapi')
-txapi.start(16)
+txapi.start(128)
 
 print('Lua:')
 local clock = require('clock')
-local tuple = { 1, 'some_string' }
 local iteration = 1000000
 
--- TODO fix result calculation
 local begin = clock.time64()
-for _ = 1, iteration do
-    space:replace(tuple)
+for i = 1000000, iteration + 1000000 do
+    space:replace { i, 'some_string' }
 end
 local elapsed = clock.time64() - begin
 local per_cycle = elapsed / iteration

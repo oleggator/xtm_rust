@@ -3,7 +3,7 @@ use xtm_rust::txapi::{Dispatcher, run_module};
 use tokio::time::Instant;
 use serde::{Deserialize, Serialize};
 use tarantool::space::Space;
-use tarantool::tuple::{AsTuple, FunctionArgs, FunctionCtx};
+use tarantool::tuple::{AsTuple};
 
 #[derive(Serialize, Deserialize)]
 struct Row {
@@ -13,19 +13,19 @@ struct Row {
 
 impl AsTuple for Row {}
 
-async fn module_main(dispatcher: Dispatcher<Box<dyn FnOnce() -> i32 + Send + 'static>, i32>) {
+async fn module_main(dispatcher: Dispatcher<'static>) {
     let iterations = 1_000_000;
 
     let now = Instant::now();
     for i in 0..iterations {
-        let result = dispatcher.call(Box::new(move || {
+        let result = dispatcher.call(move || {
             let mut space = Space::find("some_space").unwrap();
             let result = space.replace(&Row {
                 int_field: i as i32,
-                str_field: "String 2".to_string(),
+                str_field: "some_string".to_string(),
             }).unwrap();
             100
-        })).await.unwrap();
+        }).await.unwrap();
         assert_eq!(result, 100);
     }
 
