@@ -76,7 +76,7 @@ pub fn run_module<Fut, M>(buffer: usize, module_main: M)
     let module_thread = std::thread::Builder::new()
         .name("module".to_string())
         .spawn(move || {
-            runtime::Builder::new_current_thread()
+            runtime::Builder::new_multi_thread()
                 .enable_io()
                 .build()
                 .unwrap()
