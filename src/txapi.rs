@@ -8,6 +8,7 @@ use std::future::Future;
 type Task<'a> = Box<dyn FnOnce() -> Result<(), ExecError> + Send + 'a>;
 type TaskTX<'a> = async_channel::Sender<Task<'a>>;
 
+#[derive(Clone)]
 pub struct Dispatcher<'a> {
     task_tx: TaskTX<'a>,
 }
