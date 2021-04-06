@@ -44,7 +44,8 @@ async fn module_main(dispatcher: Dispatcher<'static>) {
 
     let elapsed = begin.elapsed().as_nanos();
     let avg = elapsed / iterations;
-    println!("iterations: {} | elapsed: {}ns | avg per cycle: {}ns", iterations, elapsed, avg);
+    println!("iterations: {} | elapsed: {}ns | avg per cycle: {}ns | avg rps: {}",
+             iterations, elapsed, avg, iterations * 1_000_000_000 / elapsed);
 }
 
 #[mlua::lua_module]
