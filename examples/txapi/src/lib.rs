@@ -1,10 +1,11 @@
 use mlua::prelude::*;
-use xtm_rust::txapi::{Dispatcher, run_module};
+use xtm_rust::txapi::Dispatcher;
 use tokio::time::Instant;
 use serde::{Deserialize, Serialize};
 use tarantool::space::Space;
-use tarantool::tuple::{AsTuple};
+use tarantool::tuple::AsTuple;
 use futures::future::join_all;
+use xtm_rust::run_module;
 
 #[derive(Serialize, Deserialize)]
 struct Row {
