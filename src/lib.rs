@@ -1,13 +1,14 @@
-use crate::txapi::{Dispatcher, channel};
+use crate::txapi::{AsyncDispatcher, channel};
 use std::future::Future;
 use tokio::runtime;
 
 pub mod txapi;
+mod eventfd;
 
 pub fn run_module<Fut, M>(buffer: usize, module_main: M)
     where
-        M: FnOnce(Dispatcher<'static>) -> Fut + Send + 'static,
-        Fut: Future<Output=()>,
+        M: FnOnce(AsyncDispatcher<'static>) -> Fut + Send + 'static,
+        Fut: Future<Output=()> + Send + 'static,
 {
     let (dispatcher, executor) = channel(buffer);
 
@@ -18,7 +19,10 @@ pub fn run_module<Fut, M>(buffer: usize, module_main: M)
                 .enable_io()
                 .build()
                 .unwrap()
-                .block_on(module_main(dispatcher))
+                .block_on(async move {
+                    let async_dispather = dispatcher.try_as_async_dispatcher().unwrap();
+                    module_main(async_dispather).await
+                })
         })
         .unwrap();
 

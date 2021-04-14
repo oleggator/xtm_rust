@@ -1,5 +1,5 @@
 use mlua::prelude::*;
-use xtm_rust::txapi::Dispatcher;
+use xtm_rust::txapi::AsyncDispatcher;
 use tokio::time::Instant;
 use serde::{Deserialize, Serialize};
 use tarantool::space::Space;
@@ -15,16 +15,17 @@ struct Row {
 
 impl AsTuple for Row {}
 
-async fn module_main(dispatcher: Dispatcher<'static>) {
+async fn module_main(dispatcher: AsyncDispatcher<'static>) {
     let iterations = 1_000_000;
 
     let workers = 8;
     let iterations_per_worker = iterations / workers;
     let mut futures = Vec::new();
 
+
     let begin = Instant::now();
     for i in 1..workers {
-        let dispatcher = dispatcher.clone();
+        let dispatcher = dispatcher.try_clone().unwrap();
         let fut = tokio::spawn(async move {
             for j in i*iterations_per_worker..(i+1)*iterations_per_worker {
                 let result = dispatcher.call(move || {
