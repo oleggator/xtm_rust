@@ -89,11 +89,14 @@ impl<'a> Executor<'a> {
 
     pub fn exec(&self) -> Result<(), ChannelError> {
         loop {
-            match self.task_rx.try_recv() {
-                Ok(func) => break func(),
-                Err(TryRecvError::Empty) => self.eventfd.coio_read(1.0).is_ok(),
-                Err(TryRecvError::Closed) => break Err(ChannelError::RXChannelClosed),
-            };
+            for _ in 0..100 {
+                match self.task_rx.try_recv() {
+                    Ok(func) => return func(),
+                    Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),
+                    Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
+                };
+            }
+            let _ = self.eventfd.coio_read(1.0);
         }
     }
 }
