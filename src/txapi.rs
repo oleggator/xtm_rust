@@ -4,6 +4,7 @@ use async_channel::TryRecvError;
 use thiserror::Error;
 use crate::eventfd;
 use std::os::unix::io::{AsRawFd, RawFd};
+use std::io;
 
 type Task<'a> = Box<dyn FnOnce() -> Result<(), ChannelError> + Send + 'a>;
 type TaskSender<'a> = async_channel::Sender<Task<'a>>;
@@ -16,6 +17,9 @@ pub enum ChannelError {
 
     #[error("rx channel is closed")]
     RXChannelClosed,
+
+    #[error("io error")]
+    IOError(io::Error),
 }
 
 pub struct Dispatcher<'a> {
@@ -63,12 +67,15 @@ impl<'a> AsyncDispatcher<'a> {
         if let Err(_channel_closed) = self.task_tx.send(handler_func).await {
             return Err(ChannelError::TXChannelClosed);
         }
-        self.eventfd.write(1).await.unwrap();
+
+        if let Err(err) = self.eventfd.write(1).await {
+            return Err(ChannelError::IOError(err));
+        }
 
         result_rx.await.or(Err(ChannelError::RXChannelClosed))
     }
 
-    pub fn try_clone(&self) -> std::io::Result<Self> {
+    pub fn try_clone(&self) -> io::Result<Self> {
         Ok(AsyncDispatcher {
             task_tx: self.task_tx.clone(),
             eventfd: self.eventfd.try_clone()?,
@@ -107,9 +114,9 @@ impl<'a> AsRawFd for Executor<'a> {
     }
 }
 
-pub fn channel<'a>(buffer: usize) -> (Dispatcher<'a>, Executor<'a>) {
+pub fn channel<'a>(buffer: usize) -> io::Result<(Dispatcher<'a>, Executor<'a>)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
-    let efd = eventfd::EventFd::new(0, false).unwrap();
+    let efd = eventfd::EventFd::new(0, false)?;
 
-    (Dispatcher::new(task_tx, efd.try_clone().unwrap()), Executor::new(task_rx, efd))
+    Ok((Dispatcher::new(task_tx, efd.try_clone()?), Executor::new(task_rx, efd)))
 }

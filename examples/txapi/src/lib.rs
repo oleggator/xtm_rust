@@ -54,8 +54,8 @@ async fn module_main(dispatcher: AsyncDispatcher<'static>) {
 fn libtxapi(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
-    exports.set("start", lua.create_function_mut(|_: &Lua, (buffer, ): (usize, )| {
-        run_module(buffer, module_main);
+    exports.set("start", lua.create_function_mut(|_, (buffer, )| {
+        run_module(buffer, module_main).unwrap();
         Ok(())
     })?)?;
 
