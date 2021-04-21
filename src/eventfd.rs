@@ -1,4 +1,4 @@
-use std::io;
+use std::{convert::TryFrom, io};
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::mem;
 use libc;
@@ -84,10 +84,6 @@ impl AsRawFd for EventFd {
 pub struct AsyncEventFd(AsyncFd<EventFd>);
 
 impl AsyncEventFd {
-    pub fn try_from_eventfd(event_fd: EventFd) -> io::Result<Self> {
-        Ok(Self(AsyncFd::new(event_fd)?))
-    }
-
     pub fn try_clone(&self) -> io::Result<Self> {
         let inner = self.0.get_ref().try_clone()?;
         Ok(AsyncEventFd(AsyncFd::new(inner)?))
@@ -102,6 +98,13 @@ impl AsyncEventFd {
                 Err(_would_block) => continue,
             }
         }
+    }
+}
+
+impl TryFrom<EventFd> for AsyncEventFd {
+    type Error = io::Error;
+    fn try_from(event_fd: EventFd) -> Result<Self, Self::Error> {
+        Ok(Self(AsyncFd::new(event_fd)?))
     }
 }
 

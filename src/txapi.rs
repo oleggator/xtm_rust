@@ -3,7 +3,7 @@ use async_channel;
 use async_channel::TryRecvError;
 use thiserror::Error;
 use crate::eventfd;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::{convert::TryFrom, os::unix::io::{AsRawFd, RawFd}};
 use std::io;
 
 type Task<'a> = Box<dyn FnOnce() -> Result<(), ChannelError> + Send + 'a>;
@@ -23,8 +23,8 @@ pub enum ChannelError {
 }
 
 pub struct Dispatcher<'a> {
-    task_tx: TaskSender<'a>,
-    eventfd: eventfd::EventFd,
+    pub(crate) task_tx: TaskSender<'a>,
+    pub(crate) eventfd: eventfd::EventFd,
 }
 
 impl<'a> Dispatcher<'a> {
@@ -36,13 +36,6 @@ impl<'a> Dispatcher<'a> {
         Ok(Dispatcher {
             task_tx: self.task_tx.clone(),
             eventfd: self.eventfd.try_clone()?,
-        })
-    }
-
-    pub fn try_as_async_dispatcher(self) -> std::io::Result<AsyncDispatcher<'a>> {
-        Ok(AsyncDispatcher {
-            task_tx: self.task_tx,
-            eventfd: eventfd::AsyncEventFd::try_from_eventfd(self.eventfd)?,
         })
     }
 }
@@ -79,6 +72,17 @@ impl<'a> AsyncDispatcher<'a> {
         Ok(AsyncDispatcher {
             task_tx: self.task_tx.clone(),
             eventfd: self.eventfd.try_clone()?,
+        })
+    }
+}
+
+impl<'a> TryFrom<Dispatcher<'a>> for AsyncDispatcher<'a> {
+    type Error = io::Error;
+
+    fn try_from(dispatcher: Dispatcher<'a>) -> Result<AsyncDispatcher<'a>, Self::Error> {
+        Ok(AsyncDispatcher {
+            task_tx: dispatcher.task_tx,
+            eventfd: eventfd::AsyncEventFd::try_from(dispatcher.eventfd)?,
         })
     }
 }
