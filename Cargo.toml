@@ -14,11 +14,18 @@ libc = "0.2"
 
 [dependencies.tokio]
 version = "1"
-features = ["net", "full"]
+features = [
+    "net",
+    "rt",
+    "rt-multi-thread",
+    "sync",
+    "time"
+]
 
 [workspace]
 members = [
     "examples/simple",
     "examples/lua",
     "examples/txapi",
+    "examples/bench",
 ]
