@@ -1,0 +1,15 @@
+syntax = "proto3";
+package userapi;
+
+service UserApi {
+    rpc CreateUser (CreateUserRequest) returns (CreateUserReply);
+}
+
+message CreateUserRequest {
+   string username = 1;
+}
+
+message CreateUserReply {
+    string uuid = 1;
+    string username = 2;
+}

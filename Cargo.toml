@@ -28,4 +28,5 @@ members = [
     "examples/lua",
     "examples/txapi",
     "examples/bench",
+    "examples/grpc",
 ]
