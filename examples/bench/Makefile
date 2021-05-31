@@ -1,3 +1,4 @@
 build:
-	cargo build --release -Z unstable-options --out-dir $(TARANTOOL_INSTALL_LIBDIR)
-install: build
+	cargo build --release
+install:
+	cp ../../target/release/libgrpc.so $(TARANTOOL_INSTALL_LIBDIR)/bench.so
