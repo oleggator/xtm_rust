@@ -10,8 +10,9 @@ pub mod txapi;
 
 pub fn run_module<'a, Fut, M, T>(buffer: usize, module_main: M) -> io::Result<T>
 where
-    M: FnOnce(AsyncDispatcher<'a>) -> Fut + Send,
-    Fut: Future<Output = T> + Send,
+    M: FnOnce(AsyncDispatcher<'a>) -> Fut,
+    M: Send,
+    Fut: Future<Output = T>,
     T: Send,
 {
     let (dispatcher, executor) = channel(buffer)?;
