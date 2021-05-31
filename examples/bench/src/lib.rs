@@ -1,9 +1,9 @@
 use futures::future::join_all;
+use hdrhistogram::{sync::SyncHistogram, Histogram};
 use mlua::prelude::*;
 use tokio::time::Instant;
 use xtm_rust::run_module;
 use xtm_rust::txapi::AsyncDispatcher;
-use hdrhistogram::{sync::SyncHistogram, Histogram};
 
 async fn module_main(dispatcher: AsyncDispatcher<'static>) {
     let iterations = 10_000_000;
@@ -57,8 +57,8 @@ fn bench(lua: &Lua) -> LuaResult<LuaTable> {
     exports.set(
         "start",
         lua.create_function_mut(|_, (buffer,)| {
-            run_module(buffer, module_main).unwrap();
-            Ok(())
+            run_module(buffer, module_main)
+                .map_err(LuaError::external)
         })?,
     )?;
 
