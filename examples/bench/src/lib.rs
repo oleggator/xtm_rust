@@ -51,7 +51,7 @@ async fn module_main(dispatcher: AsyncDispatcher<'static>) {
 }
 
 #[mlua::lua_module]
-fn libbench(lua: &Lua) -> LuaResult<LuaTable> {
+fn bench(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
     exports.set(
