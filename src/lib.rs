@@ -8,10 +8,10 @@ use crossbeam_utils::thread;
 pub mod txapi;
 mod eventfd;
 
-pub fn run_module<Fut, M>(buffer: usize, module_main: M) -> io::Result<()>
+pub fn run_module<'a, Fut, M>(buffer: usize, module_main: M) -> io::Result<()>
     where
-        M: FnOnce(AsyncDispatcher<'static>) -> Fut + Send + 'static,
-        Fut: Future<Output=()> + Send + 'static,
+        M: FnOnce(AsyncDispatcher<'a>) -> Fut + Send,
+        Fut: Future<Output=()> + Send,
 {
     let (dispatcher, executor) = channel(buffer)?;
 
