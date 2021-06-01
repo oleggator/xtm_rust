@@ -5,7 +5,7 @@ use tokio::time::Instant;
 use xtm_rust::run_module;
 use xtm_rust::txapi::AsyncDispatcher;
 
-async fn module_main(dispatcher: AsyncDispatcher<'static>) {
+async fn module_main(dispatcher: AsyncDispatcher) {
     let iterations = 10_000_000;
 
     let worker_n = 6;

@@ -6,9 +6,9 @@ use crate::eventfd;
 use std::{convert::TryFrom, os::unix::io::{AsRawFd, RawFd}};
 use std::io;
 
-type Task<'a> = Box<dyn FnOnce() -> Result<(), ChannelError> + Send + 'a>;
-type TaskSender<'a> = async_channel::Sender<Task<'a>>;
-type TaskReceiver<'a> = async_channel::Receiver<Task<'a>>;
+type Task = Box<dyn FnOnce() -> Result<(), ChannelError> + Send>;
+type TaskSender = async_channel::Sender<Task>;
+type TaskReceiver = async_channel::Receiver<Task>;
 
 #[derive(Error, Debug)]
 pub enum ChannelError {
@@ -22,12 +22,12 @@ pub enum ChannelError {
     IOError(io::Error),
 }
 
-pub struct Dispatcher<'a> {
-    pub(crate) task_tx: TaskSender<'a>,
+pub struct Dispatcher {
+    pub(crate) task_tx: TaskSender,
     pub(crate) eventfd: eventfd::EventFd,
 }
 
-impl<'a> Dispatcher<'a> {
+impl Dispatcher {
     pub fn new(task_tx: TaskSender, eventfd: eventfd::EventFd) -> Dispatcher {
         Dispatcher { task_tx, eventfd }
     }
@@ -40,16 +40,17 @@ impl<'a> Dispatcher<'a> {
     }
 }
 
-pub struct AsyncDispatcher<'a> {
-    task_tx: TaskSender<'a>,
+pub struct AsyncDispatcher {
+    task_tx: TaskSender,
     eventfd: eventfd::AsyncEventFd,
 }
 
-impl<'a> AsyncDispatcher<'a> {
+impl AsyncDispatcher {
     pub async fn call<F, R>(&self, func: F) -> Result<R, ChannelError>
         where
-            R: Send + 'a,
-            F: FnOnce() -> R + Send + 'a,
+            R: Send + 'static,
+            F: FnOnce() -> R,
+            F: Send + 'static
     {
         let (result_tx, result_rx) = oneshot::channel();
         let handler_func = Box::new(move || {
@@ -76,10 +77,10 @@ impl<'a> AsyncDispatcher<'a> {
     }
 }
 
-impl<'a> TryFrom<Dispatcher<'a>> for AsyncDispatcher<'a> {
+impl TryFrom<Dispatcher> for AsyncDispatcher {
     type Error = io::Error;
 
-    fn try_from(dispatcher: Dispatcher<'a>) -> Result<AsyncDispatcher<'a>, Self::Error> {
+    fn try_from(dispatcher: Dispatcher) -> Result<AsyncDispatcher, Self::Error> {
         Ok(AsyncDispatcher {
             task_tx: dispatcher.task_tx,
             eventfd: eventfd::AsyncEventFd::try_from(dispatcher.eventfd)?,
@@ -88,12 +89,12 @@ impl<'a> TryFrom<Dispatcher<'a>> for AsyncDispatcher<'a> {
 }
 
 
-pub struct Executor<'a> {
-    task_rx: TaskReceiver<'a>,
+pub struct Executor {
+    task_rx: TaskReceiver,
     eventfd: eventfd::EventFd,
 }
 
-impl<'a> Executor<'a> {
+impl Executor {
     pub fn new(task_rx: TaskReceiver, eventfd: eventfd::EventFd) -> Executor {
         Executor { task_rx, eventfd }
     }
@@ -112,13 +113,13 @@ impl<'a> Executor<'a> {
     }
 }
 
-impl<'a> AsRawFd for Executor<'a> {
+impl AsRawFd for Executor {
     fn as_raw_fd(&self) -> RawFd {
         self.eventfd.as_raw_fd()
     }
 }
 
-pub fn channel<'a>(buffer: usize) -> io::Result<(Dispatcher<'a>, Executor<'a>)> {
+pub fn channel(buffer: usize) -> io::Result<(Dispatcher, Executor)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
     let efd = eventfd::EventFd::new(0, false)?;
 

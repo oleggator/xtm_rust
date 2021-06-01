@@ -15,7 +15,7 @@ struct Row {
 
 impl AsTuple for Row {}
 
-async fn module_main(dispatcher: AsyncDispatcher<'static>) {
+async fn module_main(dispatcher: AsyncDispatcher) {
     let iterations = 1_000_000;
 
     let workers = 8;

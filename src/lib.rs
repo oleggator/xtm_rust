@@ -8,9 +8,9 @@ use crossbeam_utils::thread;
 mod eventfd;
 pub mod txapi;
 
-pub fn run_module<'a, Fut, M, T>(buffer: usize, module_main: M) -> io::Result<T>
+pub fn run_module<Fut, M, T>(buffer: usize, module_main: M) -> io::Result<T>
 where
-    M: FnOnce(AsyncDispatcher<'a>) -> Fut,
+    M: FnOnce(AsyncDispatcher) -> Fut,
     M: Send,
     Fut: Future<Output = T>,
     T: Send,
