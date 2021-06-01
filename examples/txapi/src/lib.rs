@@ -1,5 +1,5 @@
 use mlua::prelude::*;
-use xtm_rust::txapi::AsyncDispatcher;
+use xtm_rust::AsyncDispatcher;
 use tokio::time::Instant;
 use serde::{Deserialize, Serialize};
 use tarantool::space::Space;

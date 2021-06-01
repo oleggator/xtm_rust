@@ -1,12 +1,13 @@
-use crate::txapi::{channel, AsyncDispatcher};
 use std::io;
 use std::{convert::TryFrom, future::Future};
-use tokio::runtime;
 
+use tokio::runtime;
 use crossbeam_utils::thread;
 
+pub use txapi::*;
+
 mod eventfd;
-pub mod txapi;
+mod txapi;
 
 pub fn run_module<Fut, M>(buffer: usize, module_main: M) -> io::Result<Fut::Output>
 where

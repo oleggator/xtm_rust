@@ -3,7 +3,7 @@ use hdrhistogram::{sync::SyncHistogram, Histogram};
 use mlua::prelude::*;
 use tokio::time::Instant;
 use xtm_rust::run_module;
-use xtm_rust::txapi::AsyncDispatcher;
+use xtm_rust::AsyncDispatcher;
 
 async fn module_main(dispatcher: AsyncDispatcher) {
     let iterations = 10_000_000;

@@ -1,4 +1,4 @@
-use xtm_rust::txapi::AsyncDispatcher;
+use xtm_rust::AsyncDispatcher;
 
 use tonic::{transport::Server, Request, Response, Status};
 
