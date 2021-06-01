@@ -32,7 +32,7 @@ async fn module_main(dispatcher: AsyncDispatcher) {
                     let mut space = Space::find("some_space").unwrap();
                     let _result = space.replace(&Row {
                         int_field: j as i32,
-                        str_field: "some_string".to_string(),
+                        str_field: "some_string".to_owned(),
                     }).unwrap();
 
                     100

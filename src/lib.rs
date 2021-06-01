@@ -21,7 +21,7 @@ where
     let result = thread::scope(|scope| {
         let module_thread = scope
             .builder()
-            .name("module".to_string())
+            .name("module".to_owned())
             .spawn(move |_| -> io::Result<Fut::Output> {
                 let rt = runtime::Builder::new_multi_thread().enable_io().build()?;
                 rt.block_on(async move {

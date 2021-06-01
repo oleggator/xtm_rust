@@ -39,7 +39,7 @@ fn main() {
     let (module_waiter, mut module_notifier) = pipe().unwrap();
 
     thread::Builder::new()
-        .name("module".to_string())
+        .name("module".to_owned())
         .spawn(|| {
             runtime::Builder::new_current_thread()
                 .enable_io()

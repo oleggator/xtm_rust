@@ -87,7 +87,7 @@ impl<'a> Module<'a> {
         self.is_running.store(State::Running as i8, Ordering::SeqCst);
         tx_fiber.start(());
         let module_thread = thread::Builder::new()
-            .name("module".to_string())
+            .name("module".to_owned())
             .spawn(|| {
                 runtime::Builder::new_current_thread()
                     .enable_io()
