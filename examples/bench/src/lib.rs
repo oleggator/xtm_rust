@@ -22,7 +22,7 @@ async fn module_main(dispatcher: AsyncDispatcher) {
         let worker = tokio::spawn(async move {
             for j in i * iterations_per_worker..(i + 1) * iterations_per_worker {
                 let begin = Instant::now();
-                assert_eq!(dispatcher.call(move || j).await.unwrap(), j);
+                assert_eq!(dispatcher.call(move |_| j).await.unwrap(), j);
                 recorder.record(begin.elapsed().as_nanos() as u64).unwrap();
             }
         });
@@ -56,8 +56,8 @@ fn bench(lua: &Lua) -> LuaResult<LuaTable> {
 
     exports.set(
         "start",
-        lua.create_function_mut(|_, (buffer,)| {
-            run_module(buffer, module_main)
+        lua.create_function_mut(|lua, (buffer,)| {
+            run_module(buffer, module_main, lua)
                 .map_err(LuaError::external)
         })?,
     )?;

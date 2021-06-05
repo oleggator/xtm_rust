@@ -5,8 +5,9 @@ use thiserror::Error;
 use crate::eventfd;
 use std::{convert::TryFrom, os::unix::io::{AsRawFd, RawFd}};
 use std::io;
+use mlua::Lua;
 
-type Task = Box<dyn FnOnce() -> Result<(), ChannelError> + Send>;
+type Task = Box<dyn FnOnce(&Lua) -> Result<(), ChannelError> + Send>;
 type TaskSender = async_channel::Sender<Task>;
 type TaskReceiver = async_channel::Receiver<Task>;
 
@@ -46,15 +47,15 @@ pub struct AsyncDispatcher {
 }
 
 impl AsyncDispatcher {
-    pub async fn call<F, R>(&self, func: F) -> Result<R, ChannelError>
+    pub async fn call<Func, Ret>(&self, func: Func) -> Result<Ret, ChannelError>
         where
-            R: Send + 'static,
-            F: FnOnce() -> R,
-            F: Send + 'static
+            Ret: Send + 'static,
+            Func: FnOnce(&Lua) -> Ret,
+            Func: Send + 'static,
     {
         let (result_tx, result_rx) = oneshot::channel();
-        let handler_func = Box::new(move || {
-            let result: R = func();
+        let handler_func: Task = Box::new(move |lua| {
+            let result = func(lua);
             result_tx.send(result).or(Err(ChannelError::TXChannelClosed))
         });
 
@@ -99,11 +100,11 @@ impl Executor {
         Executor { task_rx, eventfd }
     }
 
-    pub fn exec(&self) -> Result<(), ChannelError> {
+    pub fn exec(&self, lua: &Lua) -> Result<(), ChannelError> {
         loop {
             for _ in 0..100 {
                 match self.task_rx.try_recv() {
-                    Ok(func) => return func(),
+                    Ok(func) => return func(lua),
                     Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };

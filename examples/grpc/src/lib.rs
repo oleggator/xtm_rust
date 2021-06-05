@@ -9,8 +9,8 @@ fn grpc(lua: &Lua) -> LuaResult<LuaTable> {
 
     exports.set(
         "start",
-        lua.create_function_mut(|_, (buffer,)| {
-            run_module(buffer, grpc::module_main)
+        lua.create_function_mut(|lua, (buffer,)| {
+            run_module(buffer, grpc::module_main, lua)
                 .map_err(LuaError::external)
         })?,
     )?;

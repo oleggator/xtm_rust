@@ -3,16 +3,17 @@ use std::{convert::TryFrom, future::Future};
 
 use tokio::runtime;
 use crossbeam_utils::thread;
+use mlua::Lua;
 
 pub use txapi::*;
 
 mod eventfd;
 mod txapi;
 
-pub fn run_module<Fut, M>(buffer: usize, module_main: M) -> io::Result<Fut::Output>
+pub fn run_module<Fut, Func>(buffer: usize, module_main: Func, lua: &Lua) -> io::Result<Fut::Output>
 where
-    M: FnOnce(AsyncDispatcher) -> Fut,
-    M: Send,
+    Func: FnOnce(AsyncDispatcher) -> Fut,
+    Func: Send,
     Fut: Future,
     Fut::Output: Send,
 {
@@ -31,7 +32,7 @@ where
             })
             .unwrap();
 
-        while executor.exec().is_ok() {}
+        while executor.exec(lua).is_ok() {}
         module_thread.join().unwrap().unwrap()
     })
     .unwrap();

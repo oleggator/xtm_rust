@@ -28,7 +28,7 @@ impl UserApi for UserAPIService {
         let msg = request.into_inner();
         let username = msg.username.clone();
 
-        let (uuid, username) = self.dispatcher.call(move || {
+        let (uuid, username) = self.dispatcher.call(move |_| {
             let mut space = Space::find("users").unwrap();
 
             let tuple = (Uuid::new_v4(), username);

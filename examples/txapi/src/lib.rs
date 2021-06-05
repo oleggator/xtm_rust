@@ -28,7 +28,7 @@ async fn module_main(dispatcher: AsyncDispatcher) {
         let dispatcher = dispatcher.try_clone().unwrap();
         let fut = tokio::spawn(async move {
             for j in i*iterations_per_worker..(i+1)*iterations_per_worker {
-                let result = dispatcher.call(move || {
+                let result = dispatcher.call(move |_| {
                     let mut space = Space::find("some_space").unwrap();
                     let _result = space.replace(&Row {
                         int_field: j as i32,
@@ -54,8 +54,8 @@ async fn module_main(dispatcher: AsyncDispatcher) {
 fn libtxapi(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
-    exports.set("start", lua.create_function_mut(|_, (buffer, )| {
-        run_module(buffer, module_main).unwrap();
+    exports.set("start", lua.create_function_mut(|lua, (buffer, )| {
+        run_module(buffer, module_main, lua).unwrap();
         Ok(())
     })?)?;
 
