@@ -1,22 +1,22 @@
 # XTM Benchmark
 
 ### Requirements
-- Rust nightly
+- Rust, cargo
 - Tarantool
 - g++
 
 ### Build
 ```bash
-tarantoolctl rocks make bench-scm-1.rockspec
+tarantoolctl rocks make
 ```
 
 ### Run benchmark
 ```bash
-tarantool bench.lua
+tarantool init.lua
 ```
 
 ### Results
-- 6-core i5-8400
+- 6-core Intel i5-8400
 - tarantool 2.8.0
 - rust 1.53 nightly
 - linux 5.11.16

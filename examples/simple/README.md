@@ -2,6 +2,7 @@
 
 ### Requirements
 - Tarantool
+- Rust, cargo
 - g++
 
 ### Build
