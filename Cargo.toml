@@ -29,8 +29,6 @@ features = [
 
 [workspace]
 members = [
-    "examples/simple",
-    "examples/lua",
     "examples/txapi",
     "examples/bench",
     "examples/grpc",
