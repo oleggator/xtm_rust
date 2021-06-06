@@ -1,3 +1,5 @@
 # Tarantool-Rust cross thread communication experiments
 
-- [Rust module example](examples/simple)
+- [Simple usage example](examples/simple)
+- [GRPC example](examples/grpc)
+- [Benchmark](examples/bench)

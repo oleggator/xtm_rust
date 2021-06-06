@@ -1,5 +1,5 @@
 [package]
-name = "txapi"
+name = "simple"
 version = "0.1.0"
 authors = ["Oleg Utkin <o.utkin@corp.mail.ru>"]
 edition = "2018"
@@ -23,7 +23,6 @@ features = ["net", "full"]
 [dependencies.xtm_rust]
 path = "../.."
 
-
 [lib]
-name = "txapi"
+name = "simple"
 crate-type = ["cdylib"]

@@ -1,16 +1,15 @@
 # Rust module example
 
 ### Requirements
-- Rust nightly
 - Tarantool
 - g++
 
 ### Build
 ```bash
-tarantoolctl rocks make txapi-scm-1.rockspec
+tarantoolctl rocks make
 ```
 
-### Run benchmark
+### Run
 ```bash
-tarantool bench.lua
+tarantool init.lua
 ```

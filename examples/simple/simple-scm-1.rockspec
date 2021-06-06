@@ -1,4 +1,4 @@
-package = 'txapi'
+package = 'simple'
 version = 'scm-1'
 source  = {
     url    = '',
