@@ -9,11 +9,11 @@ edition = "2018"
 tokio = "1"
 tonic = "0.4"
 prost = "0.7"
-tarantool = "0.4"
+tarantool = { version = "0.4", default-features = false }
 uuid = { version = "0.8", features = ["serde", "v4"] }
 
 [dependencies.mlua]
-version = "0.5"
+version = "0.6"
 features = ["luajit", "module", "serialize", "vendored"]
 
 [dependencies.xtm_rust]
