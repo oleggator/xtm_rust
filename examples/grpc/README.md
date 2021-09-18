@@ -2,11 +2,10 @@
 
 ## Build
 ```sh
-make install
+tarantoolctl rocks make
 ```
 
 ## Run
 ```sh
 tarantool init.lua
 ```
-
