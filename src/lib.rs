@@ -17,7 +17,7 @@ where
     Fut: Future,
     Fut::Output: Send,
 {
-    let (dispatcher, executor) = channel(buffer)?;
+    let (dispatcher, mut executor) = channel(buffer)?;
 
     let result = thread::scope(|scope| {
         let module_thread = scope
