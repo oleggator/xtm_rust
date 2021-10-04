@@ -6,7 +6,7 @@ use xtm_rust::run_module;
 use xtm_rust::AsyncDispatcher;
 
 async fn module_main(dispatcher: AsyncDispatcher) {
-    let iterations = 10_000_000;
+    let iterations = 10_000;
 
     let worker_n = 6;
     let iterations_per_worker = iterations / worker_n;

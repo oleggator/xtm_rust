@@ -6,6 +6,7 @@ use crate::eventfd;
 use std::{convert::TryFrom, os::unix::io::{AsRawFd, RawFd}};
 use std::io;
 use mlua::Lua;
+use tarantool::fiber;
 
 type Task = Box<dyn FnOnce(&Lua) -> Result<(), ChannelError> + Send>;
 type TaskSender = async_channel::Sender<Task>;
@@ -50,13 +51,31 @@ impl AsyncDispatcher {
     pub async fn call<Func, Ret>(&self, func: Func) -> Result<Ret, ChannelError>
         where
             Ret: Send + 'static,
-            Func: FnOnce(&Lua) -> Ret,
+            Func: Fn(&Lua) -> Ret,
             Func: Send + 'static,
     {
         let (result_tx, result_rx) = oneshot::channel();
         let handler_func: Task = Box::new(move |lua| {
-            let result = func(lua);
-            result_tx.send(result).or(Err(ChannelError::TXChannelClosed))
+
+            let mut fib = fiber::Fiber::new("fiber", &mut |args: Box<(oneshot::Sender<Ret>, Func)>| {
+                let (result_tx, lua_func) = (args.0, args.1);
+
+                let result = lua_func(lua);
+                if let Err(_) = result_tx.send(result) {
+                    println!("channel has been closed");
+                    return -1;
+                }
+
+                return 0;
+            });
+            fib.set_joinable(true);
+
+            fib.start((result_tx, func));
+            // if fib.join() != 0 {
+            //     return Err(ChannelError::TXChannelClosed);
+            // }
+
+            Ok(())
         });
 
         if let Err(_channel_closed) = self.task_tx.send(handler_func).await {
@@ -102,10 +121,10 @@ impl Executor {
 
     pub fn exec(&self, lua: &Lua) -> Result<(), ChannelError> {
         loop {
-            for _ in 0..100 {
+            loop {
                 match self.task_rx.try_recv() {
                     Ok(func) => return func(lua),
-                    Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),
+                    Err(TryRecvError::Empty) => break,
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };
             }
