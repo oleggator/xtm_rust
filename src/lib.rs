@@ -31,7 +31,6 @@ where
             .builder()
             .name("module".to_owned())
             .spawn(move |_| -> io::Result<Fut::Output> {
-                println!("{:?}", config);
                 let rt = runtime::Builder::from(config.runtime)
                     .enable_io()
                     .enable_time()
