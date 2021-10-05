@@ -12,7 +12,7 @@ space:create_index('pk', {
 })
 
 local simple = require('simple')
-simple.start(128)
+simple.start({})
 
 print(yaml.encode(space:select()))
 require('os').exit()
