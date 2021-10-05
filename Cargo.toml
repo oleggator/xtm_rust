@@ -12,6 +12,7 @@ async-channel = "1.6"
 thiserror = "1.0"
 libc = "0.2"
 crossbeam-utils = "0.8"
+serde = "1.0"
 
 [dependencies.mlua]
 version = "0.6"

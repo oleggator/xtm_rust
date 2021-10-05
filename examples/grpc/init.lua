@@ -18,4 +18,4 @@ space:create_index('pk', {
     }
 })
 
-fiber.create(grpc.start, 128)
+fiber.create(grpc.start, { buffer = 128 })
