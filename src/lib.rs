@@ -2,7 +2,6 @@ use std::io;
 use std::{convert::TryFrom, future::Future};
 
 use crossbeam_utils::thread;
-use mlua::Lua;
 use tokio::runtime;
 
 pub use txapi::*;
@@ -14,16 +13,17 @@ mod txapi;
 mod config;
 pub use config::*;
 
-pub fn run_module<Fut, Func>(
+pub fn run_module<Fut, Func, T>(
     module_main: Func,
     config: ModuleConfig,
-    lua: &Lua,
+    lua: T,
 ) -> io::Result<Fut::Output>
 where
-    Func: FnOnce(AsyncDispatcher) -> Fut,
+    Func: FnOnce(AsyncDispatcher<T>) -> Fut,
     Func: Send,
     Fut: Future,
     Fut::Output: Send,
+    T: Copy,
 {
     let (dispatcher, executor) = channel(config.buffer)?;
 

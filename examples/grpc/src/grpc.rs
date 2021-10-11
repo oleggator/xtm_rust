@@ -14,7 +14,7 @@ pub mod userapi {
 }
 
 pub struct UserAPIService {
-    dispatcher: AsyncDispatcher,
+    dispatcher: AsyncDispatcher<()>,
 }
 
 #[tonic::async_trait]
@@ -44,7 +44,7 @@ impl UserApi for UserAPIService {
     }
 }
 
-pub (crate) async fn module_main(dispatcher: AsyncDispatcher) {
+pub (crate) async fn module_main(dispatcher: AsyncDispatcher<()>) {
     let addr = "0.0.0.0:50051".parse().unwrap();
     let service = UserAPIService { dispatcher };
 
