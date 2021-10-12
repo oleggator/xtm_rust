@@ -23,12 +23,12 @@ pub enum ChannelError {
     IOError(io::Error),
 }
 
-pub struct AsyncDispatcher {
+pub struct Dispatcher {
     task_tx: TaskSender,
     eventfd: eventfd::AsyncEventFd,
 }
 
-impl AsyncDispatcher {
+impl Dispatcher {
     pub fn new(task_tx: TaskSender, eventfd: eventfd::AsyncEventFd) -> Self {
         Self { task_tx, eventfd }
     }
@@ -57,7 +57,7 @@ impl AsyncDispatcher {
     }
 
     pub fn try_clone(&self) -> io::Result<Self> {
-        Ok(AsyncDispatcher {
+        Ok(Dispatcher {
             task_tx: self.task_tx.clone(),
             eventfd: self.eventfd.try_clone()?,
         })
@@ -94,7 +94,7 @@ impl AsRawFd for Executor {
     }
 }
 
-pub fn channel(rt: &tokio::runtime::Runtime, buffer: usize) -> io::Result<(AsyncDispatcher, Executor)> {
+pub fn channel(rt: &tokio::runtime::Runtime, buffer: usize) -> io::Result<(Dispatcher, Executor)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
     let efd = eventfd::EventFd::new(0, false)?;
 
@@ -103,5 +103,5 @@ pub fn channel(rt: &tokio::runtime::Runtime, buffer: usize) -> io::Result<(Async
         eventfd::AsyncEventFd::try_from(efd.try_clone()?)?
     };
 
-    Ok((AsyncDispatcher::new(task_tx, async_efd), Executor::new(task_rx, efd)))
+    Ok((Dispatcher::new(task_tx, async_efd), Executor::new(task_rx, efd)))
 }

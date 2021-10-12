@@ -2,7 +2,7 @@ use mlua::prelude::*;
 use serde::{Deserialize, Serialize};
 use tarantool::space::Space;
 use tarantool::tuple::AsTuple;
-use xtm_rust::AsyncDispatcher;
+use xtm_rust::Dispatcher;
 use xtm_rust::{run_module, ModuleConfig};
 
 #[derive(Serialize, Deserialize)]
@@ -13,7 +13,7 @@ struct Row {
 
 impl AsTuple for Row {}
 
-async fn module_main(dispatcher: AsyncDispatcher) {
+async fn module_main(dispatcher: Dispatcher) {
     let result = dispatcher
         .call(move |_| {
             let mut space = Space::find("some_space").unwrap();

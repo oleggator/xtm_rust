@@ -19,7 +19,7 @@ pub fn run_module<Fut, Func>(
     lua: &Lua,
 ) -> io::Result<Fut::Output>
 where
-    Func: FnOnce(AsyncDispatcher) -> Fut,
+    Func: FnOnce(Dispatcher) -> Fut,
     Func: Send,
     Fut: Future,
     Fut::Output: Send,
