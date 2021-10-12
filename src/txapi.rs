@@ -23,30 +23,16 @@ pub enum ChannelError {
     IOError(io::Error),
 }
 
-pub struct Dispatcher {
-    pub(crate) task_tx: TaskSender,
-    pub(crate) eventfd: eventfd::EventFd,
-}
-
-impl Dispatcher {
-    pub fn new(task_tx: TaskSender, eventfd: eventfd::EventFd) -> Dispatcher {
-        Dispatcher { task_tx, eventfd }
-    }
-
-    pub fn try_clone(&self) -> std::io::Result<Self> {
-        Ok(Dispatcher {
-            task_tx: self.task_tx.clone(),
-            eventfd: self.eventfd.try_clone()?,
-        })
-    }
-}
-
 pub struct AsyncDispatcher {
     task_tx: TaskSender,
     eventfd: eventfd::AsyncEventFd,
 }
 
 impl AsyncDispatcher {
+    pub fn new(task_tx: TaskSender, eventfd: eventfd::AsyncEventFd) -> Self {
+        Self { task_tx, eventfd }
+    }
+
     pub async fn call<Func, Ret>(&self, func: Func) -> Result<Ret, ChannelError>
         where
             Ret: Send + 'static,
@@ -78,18 +64,6 @@ impl AsyncDispatcher {
     }
 }
 
-impl TryFrom<Dispatcher> for AsyncDispatcher {
-    type Error = io::Error;
-
-    fn try_from(dispatcher: Dispatcher) -> Result<AsyncDispatcher, Self::Error> {
-        Ok(AsyncDispatcher {
-            task_tx: dispatcher.task_tx,
-            eventfd: eventfd::AsyncEventFd::try_from(dispatcher.eventfd)?,
-        })
-    }
-}
-
-
 pub struct Executor {
     task_rx: TaskReceiver,
     eventfd: eventfd::EventFd,
@@ -120,9 +94,14 @@ impl AsRawFd for Executor {
     }
 }
 
-pub fn channel(buffer: usize) -> io::Result<(Dispatcher, Executor)> {
+pub fn channel(rt: &tokio::runtime::Runtime, buffer: usize) -> io::Result<(AsyncDispatcher, Executor)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
     let efd = eventfd::EventFd::new(0, false)?;
 
-    Ok((Dispatcher::new(task_tx, efd.try_clone()?), Executor::new(task_rx, efd)))
+    let async_efd = {
+        let _guard = rt.enter();
+        eventfd::AsyncEventFd::try_from(efd.try_clone()?)?
+    };
+
+    Ok((AsyncDispatcher::new(task_tx, async_efd), Executor::new(task_rx, efd)))
 }

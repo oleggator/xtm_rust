@@ -1,5 +1,5 @@
+use std::future::Future;
 use std::io;
-use std::{convert::TryFrom, future::Future};
 
 use crossbeam_utils::thread;
 use mlua::Lua;
@@ -24,27 +24,21 @@ where
     Fut: Future,
     Fut::Output: Send,
 {
-    let (dispatcher, executor) = channel(config.buffer)?;
+    let rt = runtime::Builder::from(config.runtime)
+        .enable_io()
+        .enable_time()
+        .build()?;
+    let (async_dispather, executor) = channel(&rt, config.buffer)?;
 
     let result = thread::scope(|scope| {
         let module_thread = scope
             .builder()
             .name("module".to_owned())
-            .spawn(move |_| -> io::Result<Fut::Output> {
-                let rt = runtime::Builder::from(config.runtime)
-                    .enable_io()
-                    .enable_time()
-                    .build()?;
-
-                rt.block_on(async move {
-                    let async_dispather = AsyncDispatcher::try_from(dispatcher)?;
-                    Ok(module_main(async_dispather).await)
-                })
-            })
+            .spawn(move |_| rt.block_on(module_main(async_dispather)))
             .unwrap();
 
         while executor.exec(lua).is_ok() {}
-        module_thread.join().unwrap().unwrap()
+        module_thread.join().unwrap()
     })
     .unwrap();
 
