@@ -6,6 +6,7 @@ use mlua::Lua;
 use tokio::runtime;
 
 pub use txapi::*;
+use tarantool::fiber::Fiber;
 
 mod eventfd;
 mod txapi;
@@ -25,6 +26,11 @@ where
     Fut::Output: Send,
 {
     let (dispatcher, executor) = channel(config.buffer)?;
+    let executor_loop = &mut |args: Box<(&Lua, Executor)>| {
+        let (lua, executor) = *args;
+        while executor.exec(lua).is_ok() {}
+        0
+    };
 
     let result = thread::scope(|scope| {
         let module_thread = scope
@@ -43,7 +49,13 @@ where
             })
             .unwrap();
 
-        while executor.exec(lua).is_ok() {}
+        {
+            let mut fiber = Fiber::new("xtm", executor_loop);
+            fiber.set_joinable(true);
+            fiber.start((lua, executor));
+            fiber.join();
+        }
+
         module_thread.join().unwrap().unwrap()
     })
     .unwrap();
