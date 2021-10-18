@@ -26,11 +26,24 @@ where
     Fut::Output: Send,
 {
     let (dispatcher, executor) = channel(config.buffer)?;
-    let executor_loop = &mut |args: Box<(&Lua, Executor)>| {
-        let (lua, executor) = *args;
-        while executor.exec(lua).is_ok() {}
-        0
+    let executor_loop = &mut |_| {
+        loop {
+            match executor.exec(lua) {
+                Ok(_) => continue,
+                Err(ChannelError::RXChannelClosed) => break 0,
+                Err(_err) => break -1,
+            }
+        }
     };
+
+    // UNSAFE: fibers must die inside the current function
+    let mut fibers = Vec::with_capacity(config.fibers);
+    for _ in 0..config.fibers {
+        let mut fiber = Fiber::new("xtm", executor_loop);
+        fiber.set_joinable(true);
+        fiber.start(());
+        fibers.push(fiber);
+    }
 
     let result = thread::scope(|scope| {
         let module_thread = scope
@@ -49,13 +62,9 @@ where
             })
             .unwrap();
 
-        {
-            let mut fiber = Fiber::new("xtm", executor_loop);
-            fiber.set_joinable(true);
-            fiber.start((lua, executor));
+        for fiber in &fibers {
             fiber.join();
         }
-
         module_thread.join().unwrap().unwrap()
     })
     .unwrap();
