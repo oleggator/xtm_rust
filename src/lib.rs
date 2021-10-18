@@ -26,7 +26,8 @@ where
     Fut::Output: Send,
 {
     let (dispatcher, executor) = channel(config.buffer)?;
-    let executor_loop = &mut |_| {
+    let executor_loop = &mut |args: Box<(&Lua, Executor)>| {
+        let (lua, executor) = *args;
         loop {
             match executor.exec(lua) {
                 Ok(_) => continue,
@@ -41,7 +42,7 @@ where
     for _ in 0..config.fibers {
         let mut fiber = Fiber::new("xtm", executor_loop);
         fiber.set_joinable(true);
-        fiber.start(());
+        fiber.start((lua, executor.try_clone()?));
         fibers.push(fiber);
     }
 
