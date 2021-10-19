@@ -99,6 +99,17 @@ impl AsyncEventFd {
             }
         }
     }
+
+    pub async fn read(&self) -> std::io::Result<u64> {
+        loop {
+            let mut guard = self.0.readable().await?;
+
+            match guard.try_io(|inner| inner.get_ref().read()) {
+                Ok(result) => return result,
+                Err(_would_block) => continue,
+            }
+        }
+    }
 }
 
 impl TryFrom<EventFd> for AsyncEventFd {
