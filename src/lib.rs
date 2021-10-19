@@ -28,13 +28,18 @@ where
     let (dispatcher, executor) = channel(config.buffer)?;
     let executor_loop = &mut |args: Box<(&Lua, Executor)>| {
         let (lua, executor) = *args;
-        loop {
-            match executor.exec(lua) {
-                Ok(_) => continue,
-                Err(ChannelError::RXChannelClosed) => break 0,
-                Err(_err) => break -1,
-            }
-        }
+
+        let thread_func = lua.create_function(move |lua, _: ()| {
+            Ok(loop {
+                match executor.exec(lua) {
+                    Ok(_) => continue,
+                    Err(ChannelError::RXChannelClosed) => break 0,
+                    Err(_err) => break -1,
+                }
+            })
+        }).unwrap();
+        let thread = lua.create_thread(thread_func).unwrap();
+        thread.resume(()).unwrap()
     };
 
     // UNSAFE: fibers must die inside the current function
