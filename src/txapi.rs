@@ -102,13 +102,14 @@ impl Executor {
 
     pub fn exec(&self, lua: &Lua) -> Result<(), ChannelError> {
         loop {
-            for _ in 0..100 {
+            for _ in 0..1000 {
                 match self.task_rx.try_recv() {
                     Ok(func) => return func(lua),
                     Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };
             }
+            // println!("wait");
             let _ = self.eventfd.coio_read(1.0);
         }
     }
