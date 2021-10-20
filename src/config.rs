@@ -7,6 +7,7 @@ pub struct ModuleConfig {
     pub buffer: usize,
     pub fibers: usize,
     pub max_recv_retries: usize,
+    pub coio_timeout: f64,
     pub runtime: RuntimeConfig,
 }
 
@@ -16,6 +17,7 @@ impl Default for ModuleConfig {
             buffer: 128,
             fibers: 16,
             max_recv_retries: 100,
+            coio_timeout: 1.0,
             runtime: RuntimeConfig::default(),
         }
     }

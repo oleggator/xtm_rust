@@ -100,7 +100,7 @@ impl Executor {
         Self { task_rx, eventfd }
     }
 
-    pub fn exec(&self, lua: &Lua, max_recv_retries: usize) -> Result<(), ChannelError> {
+    pub fn exec(&self, lua: &Lua, max_recv_retries: usize, coio_timeout: f64) -> Result<(), ChannelError> {
         loop {
             for _ in 0..max_recv_retries {
                 match self.task_rx.try_recv() {
@@ -109,8 +109,7 @@ impl Executor {
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };
             }
-            // println!("wait");
-            let _ = self.eventfd.coio_read(1.0);
+            let _ = self.eventfd.coio_read(coio_timeout);
         }
     }
 
