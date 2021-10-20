@@ -5,6 +5,7 @@ use tokio::runtime;
 #[serde(default)]
 pub struct ModuleConfig {
     pub buffer: usize,
+    pub fibers: usize,
     pub runtime: RuntimeConfig
 }
 
@@ -12,6 +13,7 @@ impl Default for ModuleConfig {
     fn default() -> Self {
         ModuleConfig{
             buffer: 128,
+            fibers: 16,
             runtime: RuntimeConfig::default(),
         }
     }

@@ -113,6 +113,13 @@ impl Executor {
             let _ = self.eventfd.coio_read(1.0);
         }
     }
+
+    pub fn try_clone(&self) -> io::Result<Self> {
+        Ok(Self {
+            task_rx: self.task_rx.clone(),
+            eventfd: self.eventfd.try_clone()?,
+        })
+    }
 }
 
 impl AsRawFd for Executor {
