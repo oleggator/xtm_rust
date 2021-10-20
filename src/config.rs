@@ -6,14 +6,16 @@ use tokio::runtime;
 pub struct ModuleConfig {
     pub buffer: usize,
     pub fibers: usize,
-    pub runtime: RuntimeConfig
+    pub max_recv_retries: usize,
+    pub runtime: RuntimeConfig,
 }
 
 impl Default for ModuleConfig {
     fn default() -> Self {
-        ModuleConfig{
+        Self {
             buffer: 128,
             fibers: 16,
+            max_recv_retries: 100,
             runtime: RuntimeConfig::default(),
         }
     }

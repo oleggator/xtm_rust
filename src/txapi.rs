@@ -29,12 +29,12 @@ pub struct Dispatcher {
 }
 
 impl Dispatcher {
-    pub fn new(task_tx: TaskSender, eventfd: eventfd::EventFd) -> Dispatcher {
-        Dispatcher { task_tx, eventfd }
+    pub fn new(task_tx: TaskSender, eventfd: eventfd::EventFd) -> Self {
+        Self { task_tx, eventfd }
     }
 
     pub fn try_clone(&self) -> std::io::Result<Self> {
-        Ok(Dispatcher {
+        Ok(Self {
             task_tx: self.task_tx.clone(),
             eventfd: self.eventfd.try_clone()?,
         })
@@ -81,8 +81,8 @@ impl AsyncDispatcher {
 impl TryFrom<Dispatcher> for AsyncDispatcher {
     type Error = io::Error;
 
-    fn try_from(dispatcher: Dispatcher) -> Result<AsyncDispatcher, Self::Error> {
-        Ok(AsyncDispatcher {
+    fn try_from(dispatcher: Dispatcher) -> Result<Self, Self::Error> {
+        Ok(Self {
             task_tx: dispatcher.task_tx,
             eventfd: eventfd::AsyncEventFd::try_from(dispatcher.eventfd)?,
         })
@@ -96,13 +96,13 @@ pub struct Executor {
 }
 
 impl Executor {
-    pub fn new(task_rx: TaskReceiver, eventfd: eventfd::EventFd) -> Executor {
-        Executor { task_rx, eventfd }
+    pub fn new(task_rx: TaskReceiver, eventfd: eventfd::EventFd) -> Self {
+        Self { task_rx, eventfd }
     }
 
-    pub fn exec(&self, lua: &Lua) -> Result<(), ChannelError> {
+    pub fn exec(&self, lua: &Lua, max_recv_retries: usize) -> Result<(), ChannelError> {
         loop {
-            for _ in 0..1000 {
+            for _ in 0..max_recv_retries {
                 match self.task_rx.try_recv() {
                     Ok(func) => return func(lua),
                     Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),

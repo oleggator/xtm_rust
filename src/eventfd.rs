@@ -86,7 +86,7 @@ pub struct AsyncEventFd(AsyncFd<EventFd>);
 impl AsyncEventFd {
     pub fn try_clone(&self) -> io::Result<Self> {
         let inner = self.0.get_ref().try_clone()?;
-        Ok(AsyncEventFd(AsyncFd::new(inner)?))
+        Ok(Self(AsyncFd::new(inner)?))
     }
 
     pub async fn write(&self, val: u64) -> io::Result<()> {
