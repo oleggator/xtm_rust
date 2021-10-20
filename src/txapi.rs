@@ -102,6 +102,12 @@ impl Executor {
 
     pub fn exec(&self, lua: &Lua, max_recv_retries: usize, coio_timeout: f64) -> Result<(), ChannelError> {
         loop {
+            match self.task_rx.try_recv() {
+                Ok(func) => return func(lua),
+                Err(TryRecvError::Empty) => (),
+                Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
+            };
+
             for _ in 0..max_recv_retries {
                 match self.task_rx.try_recv() {
                     Ok(func) => return func(lua),
