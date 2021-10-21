@@ -37,6 +37,7 @@ where
                 match executor.exec(lua, max_recv_retries, coio_timeout) {
                     Ok(_) => continue,
                     Err(ChannelError::RXChannelClosed) => break 0,
+                    Err(ChannelError::TXChannelClosed) => continue,
                     Err(_err) => break -1,
                 }
             })
