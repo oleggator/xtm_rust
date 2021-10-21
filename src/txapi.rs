@@ -55,6 +55,10 @@ impl AsyncDispatcher {
     {
         let (result_tx, result_rx) = oneshot::channel();
         let handler_func: Task = Box::new(move |lua| {
+            if result_tx.is_closed() {
+                return Err(ChannelError::TXChannelClosed)
+            };
+
             let result = func(lua);
             result_tx.send(result).or(Err(ChannelError::TXChannelClosed))
         });
