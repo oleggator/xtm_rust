@@ -12,7 +12,7 @@ fn grpc(lua: &Lua) -> LuaResult<LuaTable> {
         lua.create_function_mut(|lua, (config,): (LuaValue,)| {
             let config: ModuleConfig = lua.from_value(config)?;
 
-            run_module(grpc::module_main, config, lua).map_err(LuaError::external)
+            run_module(grpc::module_main, config, ()).map_err(LuaError::external)
         })?,
     )?;
 
