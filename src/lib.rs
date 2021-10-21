@@ -8,7 +8,6 @@ use tokio::runtime;
 pub use txapi::*;
 use tarantool::fiber::Fiber;
 
-mod eventfd;
 mod txapi;
 
 mod config;
@@ -27,14 +26,12 @@ where
 {
     let (dispatcher, executor) = channel(config.buffer)?;
 
-    let max_recv_retries = config.max_recv_retries;
-    let coio_timeout = config.coio_timeout;
     let executor_loop = &mut |args: Box<(&Lua, Executor)>| {
         let (lua, executor) = *args;
 
         let thread_func = lua.create_function(move |lua, _: ()| {
             Ok(loop {
-                match executor.exec(lua, max_recv_retries, coio_timeout) {
+                match executor.exec(lua) {
                     Ok(_) => continue,
                     Err(ChannelError::TXChannelClosed) => continue,
                     Err(ChannelError::RXChannelClosed) => break 0,
