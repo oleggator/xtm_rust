@@ -99,6 +99,7 @@ impl Executor {
             };
 
             let _ = self.eventfd.coio_read(coio_timeout);
+            self.waiters.fetch_sub(1, atomic::Ordering::Relaxed);
         }
     }
 
