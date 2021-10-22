@@ -91,6 +91,10 @@ impl AsyncDispatcher {
     pub fn len(&self) -> usize {
         self.task_tx.len()
     }
+
+    pub fn waiters(&self) -> usize {
+        self.waiters.load(atomic::Ordering::Relaxed)
+    }
 }
 
 impl TryFrom<Dispatcher> for AsyncDispatcher {
@@ -149,6 +153,10 @@ impl Executor {
 
     pub fn len(&self) -> usize {
         self.task_rx.len()
+    }
+
+    pub fn waiters(&self) -> usize {
+        self.waiters.load(atomic::Ordering::Relaxed)
     }
 }
 
