@@ -6,6 +6,7 @@ use crate::eventfd;
 use std::{convert::TryFrom, os::unix::io::{AsRawFd, RawFd}};
 use std::io;
 use mlua::Lua;
+use std::sync::{Arc, atomic};
 
 type Task = Box<dyn FnOnce(&Lua) -> Result<(), ChannelError> + Send>;
 type TaskSender = async_channel::Sender<Task>;
@@ -26,17 +27,19 @@ pub enum ChannelError {
 pub struct Dispatcher {
     pub(crate) task_tx: TaskSender,
     pub(crate) eventfd: eventfd::EventFd,
+    pub(crate) waiters: Arc<atomic::AtomicUsize>,
 }
 
 impl Dispatcher {
-    pub fn new(task_tx: TaskSender, eventfd: eventfd::EventFd) -> Self {
-        Self { task_tx, eventfd }
+    pub fn new(task_tx: TaskSender, eventfd: eventfd::EventFd, waiters: Arc<atomic::AtomicUsize>) -> Self {
+        Self { task_tx, eventfd, waiters }
     }
 
     pub fn try_clone(&self) -> std::io::Result<Self> {
         Ok(Self {
             task_tx: self.task_tx.clone(),
             eventfd: self.eventfd.try_clone()?,
+            waiters: self.waiters.clone(),
         })
     }
 }
@@ -44,6 +47,7 @@ impl Dispatcher {
 pub struct AsyncDispatcher {
     task_tx: TaskSender,
     eventfd: eventfd::AsyncEventFd,
+    waiters: Arc<atomic::AtomicUsize>,
 }
 
 impl AsyncDispatcher {
@@ -67,17 +71,20 @@ impl AsyncDispatcher {
             return Err(ChannelError::TXChannelClosed);
         }
 
-        if let Err(err) = self.eventfd.write(1).await {
-            return Err(ChannelError::IOError(err));
+        if self.waiters.load(atomic::Ordering::Relaxed) > 0 {
+            if let Err(err) = self.eventfd.write(1).await {
+                return Err(ChannelError::IOError(err));
+            }
         }
 
         result_rx.await.or(Err(ChannelError::RXChannelClosed))
     }
 
     pub fn try_clone(&self) -> io::Result<Self> {
-        Ok(AsyncDispatcher {
+        Ok(Self {
             task_tx: self.task_tx.clone(),
             eventfd: self.eventfd.try_clone()?,
+            waiters: self.waiters.clone(),
         })
     }
 
@@ -93,6 +100,7 @@ impl TryFrom<Dispatcher> for AsyncDispatcher {
         Ok(Self {
             task_tx: dispatcher.task_tx,
             eventfd: eventfd::AsyncEventFd::try_from(dispatcher.eventfd)?,
+            waiters: dispatcher.waiters,
         })
     }
 }
@@ -101,11 +109,12 @@ impl TryFrom<Dispatcher> for AsyncDispatcher {
 pub struct Executor {
     task_rx: TaskReceiver,
     eventfd: eventfd::EventFd,
+    waiters: Arc<atomic::AtomicUsize>,
 }
 
 impl Executor {
-    pub fn new(task_rx: TaskReceiver, eventfd: eventfd::EventFd) -> Self {
-        Self { task_rx, eventfd }
+    pub fn new(task_rx: TaskReceiver, eventfd: eventfd::EventFd, waiters: Arc<atomic::AtomicUsize>) -> Self {
+        Self { task_rx, eventfd, waiters }
     }
 
     pub fn exec(&self, lua: &Lua, max_recv_retries: usize, coio_timeout: f64) -> Result<(), ChannelError> {
@@ -123,6 +132,7 @@ impl Executor {
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };
             }
+            self.waiters.fetch_add(1, atomic::Ordering::Relaxed);
             let _ = self.eventfd.coio_read(coio_timeout);
         }
     }
@@ -131,6 +141,7 @@ impl Executor {
         Ok(Self {
             task_rx: self.task_rx.clone(),
             eventfd: self.eventfd.try_clone()?,
+            waiters: self.waiters.clone(),
         })
     }
 
@@ -148,6 +159,10 @@ impl AsRawFd for Executor {
 pub fn channel(buffer: usize) -> io::Result<(Dispatcher, Executor)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
     let efd = eventfd::EventFd::new(0, false)?;
+    let waiters = Arc::new(atomic::AtomicUsize::new(0));
 
-    Ok((Dispatcher::new(task_tx, efd.try_clone()?), Executor::new(task_rx, efd)))
+    Ok((
+        Dispatcher::new(task_tx, efd.try_clone()?, waiters.clone()),
+        Executor::new(task_rx, efd, waiters),
+    ))
 }
