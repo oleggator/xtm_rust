@@ -80,6 +80,10 @@ impl AsyncDispatcher {
             eventfd: self.eventfd.try_clone()?,
         })
     }
+
+    pub fn len(&self) -> usize {
+        self.task_tx.len()
+    }
 }
 
 impl TryFrom<Dispatcher> for AsyncDispatcher {
@@ -128,6 +132,10 @@ impl Executor {
             task_rx: self.task_rx.clone(),
             eventfd: self.eventfd.try_clone()?,
         })
+    }
+
+    pub fn len(&self) -> usize {
+        self.task_rx.len()
     }
 }
 
