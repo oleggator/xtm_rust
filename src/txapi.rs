@@ -132,8 +132,10 @@ impl Executor {
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };
             }
+
             self.waiters.fetch_add(1, atomic::Ordering::Relaxed);
             let _ = self.eventfd.coio_read(coio_timeout);
+            self.waiters.fetch_sub(1, atomic::Ordering::Relaxed);
         }
     }
 
