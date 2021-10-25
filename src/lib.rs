@@ -8,7 +8,7 @@ use tokio::runtime;
 pub use txapi::*;
 use tarantool::fiber::Fiber;
 
-mod eventfd;
+pub mod eventfd;
 mod txapi;
 
 mod config;
