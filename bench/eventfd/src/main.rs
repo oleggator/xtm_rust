@@ -1,4 +1,4 @@
-use std::time;
+use std::{convert::TryInto, time};
 use tokio::runtime::Builder;
 use xtm_rust::eventfd;
 
