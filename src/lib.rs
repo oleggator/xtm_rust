@@ -13,13 +13,17 @@ mod fiber_pool;
 mod config;
 pub use config::*;
 
+use tokio::sync::Notify;
+use std::sync::Arc;
+
 pub fn run_module<Fut, Func>(
     module_main: Func,
     config: ModuleConfig,
     lua: &Lua,
+    notifier : Arc<Notify>,
 ) -> io::Result<Fut::Output>
 where
-    Func: FnOnce(Dispatcher) -> Fut,
+    Func: FnOnce(Dispatcher, Arc<Notify>) -> Fut,
     Func: Send,
     Fut: Future,
     Fut::Output: Send,
@@ -39,7 +43,7 @@ where
                     .enable_time()
                     .build()?;
 
-                Ok(rt.block_on(module_main(dispatcher)))
+                Ok(rt.block_on(module_main(dispatcher, notifier)))
             })
             .unwrap();
 
