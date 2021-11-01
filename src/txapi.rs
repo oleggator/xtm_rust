@@ -62,13 +62,16 @@ impl AsyncDispatcher {
             let result = func(lua);
             result_tx.send(result).or(Err(ChannelError::TXChannelClosed))
         });
-
+        
+        let task_tx_len = self.task_tx.len();
         if let Err(_channel_closed) = self.task_tx.send(handler_func).await {
             return Err(ChannelError::TXChannelClosed);
         }
 
-        if let Err(err) = self.eventfd.write(1).await {
-            return Err(ChannelError::IOError(err));
+        if task_tx_len == 0 {
+            if let Err(err) = self.eventfd.write(1).await {
+                return Err(ChannelError::IOError(err));
+            }
         }
 
         result_rx.await.or(Err(ChannelError::RXChannelClosed))
