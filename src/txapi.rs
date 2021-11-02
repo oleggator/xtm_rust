@@ -28,7 +28,7 @@ pub struct Dispatcher<T> {
 }
 
 impl<T> Dispatcher<T> {
-    pub fn new(task_tx: TaskSender<T>, eventfd: eventfd::EventFd) -> Self<T> {
+    pub fn new(task_tx: TaskSender<T>, eventfd: eventfd::EventFd) -> Self {
         Self { task_tx, eventfd }
     }
 
@@ -53,8 +53,8 @@ impl<T> AsyncDispatcher<T> {
             Func: Send + 'static,
     {
         let (result_tx, result_rx) = oneshot::channel();
-        let handler_func: Task<T> = Box::new(move |lua| {
-            let result = func(lua);
+        let handler_func: Task<T> = Box::new(move |context| {
+            let result = func(context);
             result_tx.send(result).or(Err(ChannelError::TXChannelClosed))
         });
 
@@ -80,7 +80,7 @@ impl<T> AsyncDispatcher<T> {
 impl<T> TryFrom<Dispatcher<T>> for AsyncDispatcher<T> {
     type Error = io::Error;
 
-    fn try_from(dispatcher: Dispatcher<T>) -> Result<Self<T>, Self::Error> {
+    fn try_from(dispatcher: Dispatcher<T>) -> Result<Self, Self::Error> {
         Ok(Self {
             task_tx: dispatcher.task_tx,
             eventfd: eventfd::AsyncEventFd::try_from(dispatcher.eventfd)?,
@@ -95,21 +95,21 @@ pub struct Executor<T> {
 }
 
 impl<T> Executor<T> {
-    pub fn new(task_rx: TaskReceiver<T>, eventfd: eventfd::EventFd) -> Self<T> {
+    pub fn new(task_rx: TaskReceiver<T>, eventfd: eventfd::EventFd) -> Self {
         Self { task_rx, eventfd }
     }
 
-    pub fn exec(&self, lua: T, max_recv_retries: usize, coio_timeout: f64) -> Result<(), ChannelError> {
+    pub fn exec(&self, context: T, max_recv_retries: usize, coio_timeout: f64) -> Result<(), ChannelError> {
         loop {
             match self.task_rx.try_recv() {
-                Ok(func) => return func(lua),
+                Ok(func) => return func(context),
                 Err(TryRecvError::Empty) => (),
                 Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
             };
 
             for _ in 0..max_recv_retries {
                 match self.task_rx.try_recv() {
-                    Ok(func) => return func(lua),
+                    Ok(func) => return func(context),
                     Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };

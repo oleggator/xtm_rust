@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tokio::runtime;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 #[serde(default)]
 pub struct ModuleConfig {
     pub buffer: usize,
@@ -23,7 +23,7 @@ impl Default for ModuleConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 #[serde(tag = "type")]
 pub enum RuntimeConfig {
     #[serde(rename(deserialize = "cur_thread"))]
