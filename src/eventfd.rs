@@ -23,14 +23,6 @@ impl EventFd {
         Ok(Self(rv))
     }
 
-    pub fn try_clone(&self) -> io::Result<Self> {
-        let rv = unsafe { libc::dup(self.0) };
-        if rv < 0 {
-            return Err(io::Error::last_os_error());
-        }
-        Ok(Self(rv))
-    }
-
     pub fn read(&self) -> std::io::Result<u64> {
         let mut val: u64 = 0;
         let val_ptr: *mut u64 = &mut val;
@@ -69,6 +61,12 @@ impl EventFd {
     }
 }
 
+impl Clone for EventFd {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl Drop for EventFd {
     fn drop(&mut self) {
         unsafe { libc::close(self.0) };
@@ -85,7 +83,7 @@ pub struct AsyncEventFd(AsyncFd<EventFd>);
 
 impl AsyncEventFd {
     pub fn try_clone(&self) -> io::Result<Self> {
-        let inner = self.0.get_ref().try_clone()?;
+        let inner = self.0.get_ref().clone();
         Ok(Self(AsyncFd::new(inner)?))
     }
 

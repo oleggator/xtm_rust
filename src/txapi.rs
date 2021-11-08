@@ -36,7 +36,7 @@ impl Dispatcher {
     pub fn try_clone(&self) -> std::io::Result<Self> {
         Ok(Self {
             task_tx: self.task_tx.clone(),
-            eventfd: self.eventfd.try_clone()?,
+            eventfd: self.eventfd.clone(),
         })
     }
 }
@@ -133,7 +133,7 @@ impl Executor {
     pub fn try_clone(&self) -> io::Result<Self> {
         Ok(Self {
             task_rx: self.task_rx.clone(),
-            eventfd: self.eventfd.try_clone()?,
+            eventfd: self.eventfd.clone(),
         })
     }
 
@@ -152,5 +152,5 @@ pub fn channel(buffer: usize) -> io::Result<(Dispatcher, Executor)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
     let efd = eventfd::EventFd::new(0, false)?;
 
-    Ok((Dispatcher::new(task_tx, efd.try_clone()?), Executor::new(task_rx, efd)))
+    Ok((Dispatcher::new(task_tx, efd.clone()), Executor::new(task_rx, efd)))
 }
