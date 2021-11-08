@@ -92,11 +92,13 @@ impl AsyncEventFd {
     pub async fn write(&self, val: u64) -> io::Result<()> {
         match self.0.get_ref().write(val) {
             Ok(()) => return Ok(()),
-            Err(err) => if err.kind() != io::ErrorKind::WouldBlock {
-                return Err(err)
-            },
+            Err(err) => match err.kind() {
+                io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted => {},
+                _ => return Err(err),
+            }
         }
 
+        println!("block");
         loop {
             let mut guard = self.0.writable().await?;
 
