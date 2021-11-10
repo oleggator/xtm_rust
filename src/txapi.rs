@@ -7,7 +7,7 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use std::io;
 use mlua::Lua;
 
-type Task = Box<dyn FnOnce(&Lua) -> Result<(), ChannelError> + Send>;
+pub type Task = Box<dyn FnOnce(&Lua) -> Result<(), ChannelError> + Send>;
 type TaskSender = async_channel::Sender<Task>;
 type TaskReceiver = async_channel::Receiver<Task>;
 
@@ -103,6 +103,27 @@ impl Executor {
             }
             let _ = self.eventfd.coio_read(coio_timeout);
         }
+    }
+
+    pub fn pop_many(&self, max_tasks: usize, coio_timeout: f64) -> Result<Vec<Task>, ChannelError> {
+        if self.task_rx.is_empty() {
+            let _ = self.eventfd.coio_read(coio_timeout);
+        }
+
+        let mut tasks = Vec::with_capacity(max_tasks);
+        for _ in 0..max_tasks {
+            match self.task_rx.try_recv() {
+                Ok(func) => tasks.push(func),
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
+            };
+
+            if self.task_rx.len() <= 1 {
+                break;
+            }
+        }
+
+        Ok(tasks)
     }
 
     pub fn try_clone(&self) -> io::Result<Self> {
