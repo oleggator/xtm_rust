@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 use tokio::runtime;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct ModuleConfig {
     pub buffer: usize,
     pub fibers: usize,
     pub max_recv_retries: usize,
+    pub max_batch: usize,
     pub coio_timeout: f64,
     pub runtime: RuntimeConfig,
 }
@@ -17,13 +18,14 @@ impl Default for ModuleConfig {
             buffer: 128,
             fibers: 16,
             max_recv_retries: 100,
+            max_batch: 16,
             coio_timeout: 1.0,
             runtime: RuntimeConfig::default(),
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum RuntimeConfig {
     #[serde(rename(deserialize = "cur_thread"))]
