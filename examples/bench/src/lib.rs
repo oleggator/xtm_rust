@@ -5,7 +5,18 @@ use tokio::time::Instant;
 use xtm_rust::{run_module, AsyncDispatcher, ModuleConfig};
 
 async fn module_main(dispatcher: AsyncDispatcher) {
-    let iterations = 10_000_000;
+    tokio::spawn({
+        let dispatcher = dispatcher.try_clone().unwrap();
+        async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+            loop {
+                println!("task_queue: {:>3}", dispatcher.len());
+                interval.tick().await;
+            }
+        }
+    });
+
+    let iterations = 1_000_000;
 
     let worker_n = 6;
     let iterations_per_worker = iterations / worker_n;
@@ -57,6 +68,7 @@ fn bench(lua: &Lua) -> LuaResult<LuaTable> {
         "start",
         lua.create_function_mut(|lua, (config,): (LuaValue,)| {
             let config: ModuleConfig = lua.from_value(config)?;
+            println!("{:?}", config);
 
             run_module(module_main, config, lua).map_err(LuaError::external)
         })?,

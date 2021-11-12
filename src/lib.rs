@@ -1,15 +1,12 @@
-use std::io;
-use std::{convert::TryFrom, future::Future};
-
+use std::{convert::TryFrom, future::Future, io};
 use crossbeam_utils::thread;
 use mlua::Lua;
 use tokio::runtime;
-
 pub use txapi::*;
-use tarantool::fiber::Fiber;
 
 mod eventfd;
 mod txapi;
+mod fiber_pool;
 
 mod config;
 pub use config::*;
@@ -27,31 +24,8 @@ where
 {
     let (dispatcher, executor) = channel(config.buffer)?;
 
-    let executor_loop = &mut |args: Box<(&Lua, Executor)>| {
-        let (lua, executor) = *args;
-
-        let thread_func = lua.create_function(move |lua, _: ()| {
-            Ok(loop {
-                match executor.exec(lua, config.max_recv_retries, config.coio_timeout) {
-                    Ok(_) => continue,
-                    Err(ChannelError::TXChannelClosed) => continue,
-                    Err(ChannelError::RXChannelClosed) => break 0,
-                    Err(_err) => break -1,
-                }
-            })
-        }).unwrap();
-        let thread = lua.create_thread(thread_func).unwrap();
-        thread.resume(()).unwrap()
-    };
-
-    // UNSAFE: fibers must die inside the current function
-    let mut fibers = Vec::with_capacity(config.fibers);
-    for _ in 0..config.fibers {
-        let mut fiber = Fiber::new("xtm", executor_loop);
-        fiber.set_joinable(true);
-        fiber.start((lua, executor.try_clone()?));
-        fibers.push(fiber);
-    }
+    let mut fiber_pool = fiber_pool::FiberPool::new(lua, executor, config.clone());
+    fiber_pool.run();
 
     let result = thread::scope(|scope| {
         let module_thread = scope
@@ -70,9 +44,7 @@ where
             })
             .unwrap();
 
-        for fiber in &fibers {
-            fiber.join();
-        }
+        fiber_pool.join();
         module_thread.join().unwrap().unwrap()
     })
     .unwrap();
