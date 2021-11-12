@@ -6,7 +6,6 @@ use tokio::runtime;
 pub struct ModuleConfig {
     pub buffer: usize,
     pub fibers: usize,
-    pub max_recv_retries: usize,
     pub max_batch: usize,
     pub coio_timeout: f64,
     pub runtime: RuntimeConfig,
@@ -17,7 +16,6 @@ impl Default for ModuleConfig {
         Self {
             buffer: 128,
             fibers: 16,
-            max_recv_retries: 100,
             max_batch: 16,
             coio_timeout: 1.0,
             runtime: RuntimeConfig::default(),

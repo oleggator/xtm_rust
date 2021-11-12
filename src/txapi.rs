@@ -111,7 +111,7 @@ impl Executor {
         Self { task_rx, eventfd }
     }
 
-    pub fn exec(&self, lua: &Lua, max_recv_retries: usize, coio_timeout: f64) -> Result<(), ChannelError> {
+    pub fn exec(&self, lua: &Lua, coio_timeout: f64) -> Result<(), ChannelError> {
         loop {
             match self.task_rx.try_recv() {
                 Ok(func) => return func(lua),
@@ -119,13 +119,6 @@ impl Executor {
                 Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
             };
 
-            for _ in 0..max_recv_retries {
-                match self.task_rx.try_recv() {
-                    Ok(func) => return func(lua),
-                    Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),
-                    Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
-                };
-            }
             let _ = self.eventfd.coio_read(coio_timeout);
         }
     }
