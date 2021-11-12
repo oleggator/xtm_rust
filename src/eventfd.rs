@@ -31,7 +31,7 @@ impl EventFd {
         Ok(Self(rv))
     }
 
-    pub fn read(&self) -> std::io::Result<u64> {
+    pub fn read(&self) -> io::Result<u64> {
         let mut val: u64 = 0;
         let val_ptr: *mut u64 = &mut val;
 
@@ -90,6 +90,13 @@ impl AsyncEventFd {
     }
 
     pub async fn write(&self, val: u64) -> io::Result<()> {
+        match self.0.get_ref().write(val) {
+            Ok(()) => return Ok(()),
+            Err(err) => if err.kind() != io::ErrorKind::WouldBlock {
+                return Err(err)
+            },
+        }
+
         loop {
             let mut guard = self.0.writable().await?;
 
@@ -100,7 +107,14 @@ impl AsyncEventFd {
         }
     }
 
-    pub async fn read(&self) -> std::io::Result<u64> {
+    pub async fn read(&self) -> io::Result<u64> {
+        match self.0.get_ref().read() {
+            Ok(result) => return Ok(result),
+            Err(err) => if err.kind() != io::ErrorKind::WouldBlock {
+                return Err(err)
+            },
+        }
+
         loop {
             let mut guard = self.0.readable().await?;
 
