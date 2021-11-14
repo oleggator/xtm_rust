@@ -113,12 +113,13 @@ impl<'a> FiberPool<'a> {
         }
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> std::io::Result<()> {
         self.scheduler.start(SchedulerArgs {
             lua: self.lua,
-            executor: self.executor.try_clone().unwrap(),
+            executor: self.executor.try_clone()?,
             config: self.config.clone(),
         });
+        Ok(())
     }
 
     // join will exit when all Dispatchers die

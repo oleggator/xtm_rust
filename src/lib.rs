@@ -27,7 +27,7 @@ where
     let (dispatcher, executor) = channel(config.buffer)?;
 
     let mut fiber_pool = fiber_pool::FiberPool::new(lua, executor, config.clone());
-    fiber_pool.run();
+    fiber_pool.run()?;
 
     let result = thread::scope(|scope| {
         let module_thread = scope
