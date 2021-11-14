@@ -8,6 +8,7 @@ pub struct ModuleConfig {
     pub fibers: usize,
     pub max_batch: usize,
     pub coio_timeout: f64,
+    pub fiber_standby_timeout: f64,
     pub runtime: RuntimeConfig,
 }
 
@@ -17,7 +18,8 @@ impl Default for ModuleConfig {
             buffer: 128,
             fibers: 16,
             max_batch: 16,
-            coio_timeout: 1.0,
+            coio_timeout: 0.1,
+            fiber_standby_timeout: 1.0,
             runtime: RuntimeConfig::default(),
         }
     }
