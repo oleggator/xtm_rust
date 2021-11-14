@@ -17,11 +17,11 @@ fn scheduler_f(args: Box<SchedulerArgs>) -> i32 {
         executor,
         config:
             ModuleConfig {
-        max_batch,
-        coio_timeout,
-        fibers,
+                max_batch,
+                coio_timeout,
+                fibers,
                 fiber_standby_timeout,
-        ..
+                ..
             },
     } = *args;
 
@@ -31,6 +31,7 @@ fn scheduler_f(args: Box<SchedulerArgs>) -> i32 {
     let mut workers = LinkedList::new();
     for _ in 0..fibers {
         let mut worker = fiber::Fiber::new("worker", &mut worker_f);
+        worker.set_joinable(true);
         worker.start(WorkerArgs {
             cond: cond.clone(),
             lua,
@@ -40,25 +41,31 @@ fn scheduler_f(args: Box<SchedulerArgs>) -> i32 {
         workers.push_back(worker);
     }
 
-    loop {
+    let result = loop {
         let tasks = match executor.pop_many(max_batch, coio_timeout) {
             Ok(tasks) => tasks,
-            Err(ChannelError::TXChannelClosed) => break,
-            Err(ChannelError::RXChannelClosed) => return 0,
-            Err(_err) => return -1,
+            Err(ChannelError::RXChannelClosed) => break Ok(()),
+            Err(err) => break Err(err),
         };
 
         for task in tasks {
-            tx.send(task).unwrap();
+            tx.send(task).unwrap(); // TODO: add error handling
             cond.signal();
         }
-    }
+    };
+
+    // gracefully kill fibers
+    drop(tx);
+    cond.broadcast();
 
     for worker in workers {
         worker.join();
     }
 
-    0
+    match result {
+        Ok(_) => 0,
+        Err(_) => -1,
+    }
 }
 
 struct WorkerArgs<'a> {
