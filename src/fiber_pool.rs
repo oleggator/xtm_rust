@@ -95,8 +95,8 @@ fn worker_f(args: Box<WorkerArgs>) -> i32 {
                 .unwrap();
             }
         })
-        .unwrap();
-    let thread = lua.create_thread(thread_func.clone()).unwrap();
+        .unwrap(); // TODO: fix TXChannelClosed (oneshot receiver was dropped)
+    let thread = lua.create_thread(thread_func).unwrap();
     let _: () = thread.resume(()).unwrap();
 
     0
