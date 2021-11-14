@@ -15,14 +15,15 @@ fn scheduler_f(args: Box<SchedulerArgs>) -> i32 {
     let SchedulerArgs {
         lua,
         executor,
-        config,
-    } = *args;
-    let ModuleConfig {
+        config:
+            ModuleConfig {
         max_batch,
         coio_timeout,
         fibers,
+                fiber_standby_timeout,
         ..
-    } = config;
+            },
+    } = *args;
 
     let cond = Rc::new(fiber::Cond::new());
     let (tx, rx) = unbounded::<Task>();
@@ -34,6 +35,7 @@ fn scheduler_f(args: Box<SchedulerArgs>) -> i32 {
             cond: cond.clone(),
             lua,
             rx: rx.clone(),
+            fiber_standby_timeout,
         });
         workers.push_back(worker);
     }
@@ -63,9 +65,15 @@ struct WorkerArgs<'a> {
     cond: Rc<fiber::Cond>,
     lua: &'a Lua,
     rx: crossbeam_channel::Receiver<Task>,
+    fiber_standby_timeout: f64,
 }
 fn worker_f(args: Box<WorkerArgs>) -> i32 {
-    let WorkerArgs { cond, lua, rx } = *args;
+    let WorkerArgs {
+        cond,
+        lua,
+        rx,
+        fiber_standby_timeout,
+    } = *args;
 
     let thread_func = lua
         .create_function(move |lua, _: ()| {
@@ -74,11 +82,12 @@ fn worker_f(args: Box<WorkerArgs>) -> i32 {
                     Ok(task) => task(lua),
                     Err(TryRecvError::Disconnected) => return Ok(()),
                     Err(TryRecvError::Empty) => {
-                        cond.wait();
-                        // let ok = cond.wait_timeout(std::time::Duration::from_secs(1));
-                        // if !ok {
-                            // kill fiber
-                            // return Ok(());
+                        let signaled = cond.wait_timeout(std::time::Duration::from_secs_f64(
+                            fiber_standby_timeout,
+                        ));
+                        // if !signaled {
+                        //     // kill fiber
+                        //     return Ok(());
                         // }
                         Ok(())
                     }
