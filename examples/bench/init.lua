@@ -1,7 +1,7 @@
 local txapi = require('bench')
 txapi.start({
-    fibers = 4,
-    max_batch = 8,
+    fibers = 16,
+    max_batch = 16,
     runtime = { type = "cur_thread" },
 }) -- will use default
 -- txapi.start({buffer = 128 })
