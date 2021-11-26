@@ -16,9 +16,9 @@ async fn module_main(dispatcher: Dispatcher) {
         }
     });
 
-    let iterations = 1_000_000;
+    let iterations = 4_000_000;
 
-    let worker_n = 6;
+    let worker_n = 16;
     let iterations_per_worker = iterations / worker_n;
     let mut workers = Vec::new();
 
