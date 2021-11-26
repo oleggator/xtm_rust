@@ -1,4 +1,4 @@
-use std::{collections::LinkedList, rc::Rc};
+use std::{collections::LinkedList, rc::Rc, time::Duration};
 
 use crossbeam_channel::{unbounded, TryRecvError};
 use mlua::Lua;
@@ -81,32 +81,34 @@ fn worker_f(args: Box<WorkerArgs>) -> i32 {
         rx,
         fiber_standby_timeout,
     } = *args;
+    let fiber_standby_timeout = Duration::from_secs_f64(fiber_standby_timeout);
 
     let thread_func = lua
         .create_function(move |lua, _: ()| {
             loop {
                 match rx.try_recv() {
-                    Ok(task) => task(lua),
-                    Err(TryRecvError::Disconnected) => return Ok(()),
+                    Ok(task) => match task(lua) {
+                        Ok(()) => (),
+                        Err(ChannelError::TXChannelClosed) => continue,
+                        Err(err) => break Err(mlua::Error::external(err)),
+                    },
+                    Err(TryRecvError::Disconnected) => break Ok(()),
                     Err(TryRecvError::Empty) => {
-                        let signaled = cond.wait_timeout(std::time::Duration::from_secs_f64(
-                            fiber_standby_timeout,
-                        ));
+                        let signaled = cond.wait_timeout(fiber_standby_timeout);
                         // if !signaled {
                         //     // kill fiber
-                        //     return Ok(());
+                        //     break Ok(());
                         // }
-                        Ok(())
                     }
                 }
-                .unwrap();
             }
         })
-        .unwrap(); // TODO: fix TXChannelClosed (oneshot receiver was dropped)
+        .unwrap();
     let thread = lua.create_thread(thread_func).unwrap();
-    let _: () = thread.resume(()).unwrap();
-
-    0
+    match thread.resume(()) {
+        Ok(()) => 0,
+        Err(_) => -1,
+    }
 }
 
 pub(crate) struct FiberPool<'a> {
