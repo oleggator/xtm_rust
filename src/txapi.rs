@@ -3,7 +3,7 @@ use async_channel;
 use async_channel::TryRecvError;
 use thiserror::Error;
 use crate::eventfd;
-use std::{convert::TryFrom, os::unix::io::{AsRawFd, RawFd}};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::io;
 use mlua::Lua;
 
@@ -39,14 +39,7 @@ impl Dispatcher {
             eventfd: self.eventfd.try_clone()?,
         })
     }
-}
 
-pub struct AsyncDispatcher {
-    task_tx: TaskSender,
-    eventfd: eventfd::AsyncEventFd,
-}
-
-impl AsyncDispatcher {
     pub async fn call<Func, Ret>(&self, func: Func) -> Result<Ret, ChannelError>
         where
             Ret: Send + 'static,
@@ -69,7 +62,7 @@ impl AsyncDispatcher {
         }
 
         if task_tx_len == 0 {
-            if let Err(err) = self.eventfd.write(1).await {
+            if let Err(err) = self.eventfd.write(1) {
                 return Err(ChannelError::IOError(err));
             }
         }
@@ -77,26 +70,8 @@ impl AsyncDispatcher {
         result_rx.await.or(Err(ChannelError::RXChannelClosed))
     }
 
-    pub fn try_clone(&self) -> io::Result<Self> {
-        Ok(AsyncDispatcher {
-            task_tx: self.task_tx.clone(),
-            eventfd: self.eventfd.try_clone()?,
-        })
-    }
-
     pub fn len(&self) -> usize {
         self.task_tx.len()
-    }
-}
-
-impl TryFrom<Dispatcher> for AsyncDispatcher {
-    type Error = io::Error;
-
-    fn try_from(dispatcher: Dispatcher) -> Result<Self, Self::Error> {
-        Ok(Self {
-            task_tx: dispatcher.task_tx,
-            eventfd: eventfd::AsyncEventFd::try_from(dispatcher.eventfd)?,
-        })
     }
 }
 

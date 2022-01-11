@@ -1,10 +1,9 @@
-use std::{convert::TryFrom, io};
+use std::io;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::mem;
 use libc;
 use tarantool::ffi::tarantool::CoIOFlags;
 use tarantool::coio;
-use tokio::io::unix::AsyncFd;
 
 pub struct EventFd(RawFd);
 
@@ -78,63 +77,5 @@ impl Drop for EventFd {
 impl AsRawFd for EventFd {
     fn as_raw_fd(&self) -> RawFd {
         self.0
-    }
-}
-
-pub struct AsyncEventFd(AsyncFd<EventFd>);
-
-impl AsyncEventFd {
-    pub fn try_clone(&self) -> io::Result<Self> {
-        let inner = self.0.get_ref().try_clone()?;
-        Ok(Self(AsyncFd::new(inner)?))
-    }
-
-    pub async fn write(&self, val: u64) -> io::Result<()> {
-        match self.0.get_ref().write(val) {
-            Ok(()) => return Ok(()),
-            Err(err) => if err.kind() != io::ErrorKind::WouldBlock {
-                return Err(err)
-            },
-        }
-
-        loop {
-            let mut guard = self.0.writable().await?;
-
-            match guard.try_io(|inner| inner.get_ref().write(val)) {
-                Ok(result) => return result,
-                Err(_would_block) => continue,
-            }
-        }
-    }
-
-    pub async fn read(&self) -> io::Result<u64> {
-        match self.0.get_ref().read() {
-            Ok(result) => return Ok(result),
-            Err(err) => if err.kind() != io::ErrorKind::WouldBlock {
-                return Err(err)
-            },
-        }
-
-        loop {
-            let mut guard = self.0.readable().await?;
-
-            match guard.try_io(|inner| inner.get_ref().read()) {
-                Ok(result) => return result,
-                Err(_would_block) => continue,
-            }
-        }
-    }
-}
-
-impl TryFrom<EventFd> for AsyncEventFd {
-    type Error = io::Error;
-    fn try_from(event_fd: EventFd) -> Result<Self, Self::Error> {
-        Ok(Self(AsyncFd::new(event_fd)?))
-    }
-}
-
-impl AsRawFd for AsyncEventFd {
-    fn as_raw_fd(&self) -> RawFd {
-        self.0.get_ref().0
     }
 }

@@ -2,9 +2,9 @@ use futures::future::join_all;
 use hdrhistogram::{sync::SyncHistogram, Histogram};
 use mlua::prelude::*;
 use tokio::time::Instant;
-use xtm_rust::{run_module, AsyncDispatcher, ModuleConfig};
+use xtm_rust::{run_module, Dispatcher, ModuleConfig};
 
-async fn module_main(dispatcher: AsyncDispatcher) {
+async fn module_main(dispatcher: Dispatcher) {
     let iterations = 10_000_000;
 
     let worker_n = 6;

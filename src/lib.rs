@@ -1,5 +1,5 @@
 use std::io;
-use std::{convert::TryFrom, future::Future};
+use std::future::Future;
 
 use crossbeam_utils::thread;
 use mlua::Lua;
@@ -20,7 +20,7 @@ pub fn run_module<Fut, Func>(
     lua: &Lua,
 ) -> io::Result<Fut::Output>
 where
-    Func: FnOnce(AsyncDispatcher) -> Fut,
+    Func: FnOnce(Dispatcher) -> Fut,
     Func: Send,
     Fut: Future,
     Fut::Output: Send,
@@ -63,10 +63,7 @@ where
                     .enable_time()
                     .build()?;
 
-                rt.block_on(async move {
-                    let async_dispather = AsyncDispatcher::try_from(dispatcher)?;
-                    Ok(module_main(async_dispather).await)
-                })
+                Ok(rt.block_on(module_main(dispatcher)))
             })
             .unwrap();
 
