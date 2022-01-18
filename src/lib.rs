@@ -17,7 +17,7 @@ pub use config::*;
 pub fn run_module<Fut, Func>(
     module_main: Func,
     config: ModuleConfig,
-    lua: &Lua,
+    lua: &'static Lua,
 ) -> io::Result<Fut::Output>
 where
     Func: FnOnce(Dispatcher) -> Fut,
