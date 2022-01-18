@@ -6,7 +6,6 @@ use mlua::Lua;
 use tokio::runtime;
 
 pub use txapi::*;
-use tarantool::fiber::Fiber;
 
 mod eventfd;
 mod txapi;
@@ -27,11 +26,12 @@ where
 {
     let (dispatcher, executor) = channel(config.buffer)?;
 
-    let executor_loop = &mut |args: Box<(&Lua, Executor)>| {
-        let (lua, executor) = *args;
-
-        let thread_func = lua.create_function(move |lua, _: ()| {
-            Ok(loop {
+    let mut fibers = Vec::with_capacity(config.fibers);
+    for i in 0..config.fibers {
+        let executor = executor.try_clone().unwrap();
+        let handle: tarantool::fiber::JoinHandle<i32> = tarantool::fiber::Builder::new()
+            .name(format!("xtm{}", i))
+            .func(move || loop {
                 match executor.exec(lua, config.max_recv_retries, config.coio_timeout) {
                     Ok(_) => continue,
                     Err(ChannelError::TXChannelClosed) => continue,
@@ -39,18 +39,10 @@ where
                     Err(_err) => break -1,
                 }
             })
-        }).unwrap();
-        let thread = lua.create_thread(thread_func).unwrap();
-        thread.resume(()).unwrap()
-    };
+            .start()
+            .unwrap();
 
-    // UNSAFE: fibers must die inside the current function
-    let mut fibers = Vec::with_capacity(config.fibers);
-    for _ in 0..config.fibers {
-        let mut fiber = Fiber::new("xtm", executor_loop);
-        fiber.set_joinable(true);
-        fiber.start((lua, executor.try_clone()?));
-        fibers.push(fiber);
+        fibers.push(handle);
     }
 
     let result = thread::scope(|scope| {
@@ -67,7 +59,7 @@ where
             })
             .unwrap();
 
-        for fiber in &fibers {
+        for fiber in fibers {
             fiber.join();
         }
         module_thread.join().unwrap().unwrap()
