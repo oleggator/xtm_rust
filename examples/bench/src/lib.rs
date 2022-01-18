@@ -5,7 +5,7 @@ use tokio::time::Instant;
 use xtm_rust::{run_module, Dispatcher, ModuleConfig};
 
 async fn module_main(dispatcher: Dispatcher) {
-    let iterations = 10_000_000;
+    let iterations = 20;
 
     let worker_n = 6;
     let iterations_per_worker = iterations / worker_n;
@@ -15,7 +15,7 @@ async fn module_main(dispatcher: Dispatcher) {
 
     let begin = Instant::now();
     for i in 0..worker_n {
-        let dispatcher = dispatcher.try_clone().unwrap();
+        let dispatcher = dispatcher.clone();
         let mut recorder = histogram.recorder();
 
         let worker = tokio::spawn(async move {

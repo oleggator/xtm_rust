@@ -32,7 +32,7 @@ where
 
         let thread_func = lua.create_function(move |lua, _: ()| {
             Ok(loop {
-                match executor.exec(lua, config.max_recv_retries, config.coio_timeout) {
+                match executor.exec(lua, config.coio_timeout) {
                     Ok(_) => continue,
                     Err(ChannelError::TXChannelClosed) => continue,
                     Err(ChannelError::RXChannelClosed) => break 0,
@@ -49,7 +49,7 @@ where
     for _ in 0..config.fibers {
         let mut fiber = Fiber::new("xtm", executor_loop);
         fiber.set_joinable(true);
-        fiber.start((lua, executor.try_clone()?));
+        fiber.start((lua, executor.clone()));
         fibers.push(fiber);
     }
 

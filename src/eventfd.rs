@@ -4,6 +4,8 @@ use std::mem;
 use libc;
 use tarantool::ffi::tarantool::CoIOFlags;
 use tarantool::coio;
+use futures::task::ArcWake;
+use std::sync::Arc;
 
 pub struct EventFd(RawFd);
 
@@ -77,5 +79,11 @@ impl Drop for EventFd {
 impl AsRawFd for EventFd {
     fn as_raw_fd(&self) -> RawFd {
         self.0
+    }
+}
+
+impl ArcWake for EventFd {
+    fn wake_by_ref(arc_self: &Arc<Self>) {
+        arc_self.write(1).unwrap();
     }
 }
