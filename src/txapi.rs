@@ -73,10 +73,6 @@ impl Dispatcher {
     pub fn len(&self) -> usize {
         self.task_tx.len()
     }
-
-    pub fn waiters(&self) -> usize {
-        self.waiters.load(atomic::Ordering::Relaxed)
-    }
 }
 
 
