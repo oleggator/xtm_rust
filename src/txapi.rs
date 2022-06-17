@@ -6,7 +6,6 @@ use crate::eventfd;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::io;
 use mlua::Lua;
-use std::sync::{Arc, atomic};
 
 pub type Task = Box<dyn FnOnce(&Lua) -> Result<(), ChannelError> + Send>;
 type TaskSender = async_channel::Sender<Task>;
@@ -27,19 +26,17 @@ pub enum ChannelError {
 pub struct Dispatcher {
     pub(crate) task_tx: TaskSender,
     pub(crate) eventfd: eventfd::EventFd,
-    pub(crate) waiters: Arc<atomic::AtomicUsize>,
 }
 
 impl Dispatcher {
-    pub fn new(task_tx: TaskSender, eventfd: eventfd::EventFd, waiters: Arc<atomic::AtomicUsize>) -> Self {
-        Self { task_tx, eventfd, waiters }
+    pub fn new(task_tx: TaskSender, eventfd: eventfd::EventFd) -> Self {
+        Self { task_tx, eventfd }
     }
 
     pub fn try_clone(&self) -> std::io::Result<Self> {
         Ok(Self {
             task_tx: self.task_tx.clone(),
             eventfd: self.eventfd.try_clone()?,
-            waiters: self.waiters.clone(),
         })
     }
 
@@ -86,12 +83,11 @@ impl Dispatcher {
 pub struct Executor {
     task_rx: TaskReceiver,
     eventfd: eventfd::EventFd,
-    waiters: Arc<atomic::AtomicUsize>,
 }
 
 impl Executor {
-    pub fn new(task_rx: TaskReceiver, eventfd: eventfd::EventFd, waiters: Arc<atomic::AtomicUsize>) -> Self {
-        Self { task_rx, eventfd, waiters }
+    pub fn new(task_rx: TaskReceiver, eventfd: eventfd::EventFd) -> Self {
+        Self { task_rx, eventfd }
     }
 
     pub fn exec(&self, lua: &Lua, coio_timeout: f64) -> Result<(), ChannelError> {
@@ -103,7 +99,6 @@ impl Executor {
             };
 
             let _ = self.eventfd.coio_read(coio_timeout);
-            self.waiters.fetch_sub(1, atomic::Ordering::Relaxed);
         }
     }
 
@@ -132,16 +127,7 @@ impl Executor {
         Ok(Self {
             task_rx: self.task_rx.clone(),
             eventfd: self.eventfd.try_clone()?,
-            waiters: self.waiters.clone(),
         })
-    }
-
-    pub fn len(&self) -> usize {
-        self.task_rx.len()
-    }
-
-    pub fn waiters(&self) -> usize {
-        self.waiters.load(atomic::Ordering::Relaxed)
     }
 }
 
@@ -154,10 +140,6 @@ impl AsRawFd for Executor {
 pub fn channel(buffer: usize) -> io::Result<(Dispatcher, Executor)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
     let efd = eventfd::EventFd::new(0, false)?;
-    let waiters = Arc::new(atomic::AtomicUsize::new(0));
 
-    Ok((
-        Dispatcher::new(task_tx, efd.try_clone()?, waiters.clone()),
-        Executor::new(task_rx, efd, waiters),
-    ))
+    Ok((Dispatcher::new(task_tx, efd.try_clone()?), Executor::new(task_rx, efd)))
 }
