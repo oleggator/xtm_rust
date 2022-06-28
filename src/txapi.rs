@@ -62,9 +62,7 @@ impl Dispatcher {
         }
 
         if task_tx_len == 0 {
-            if let Err(err) = self.eventfd.write(1) {
-                return Err(ChannelError::IOError(err));
-            }
+            self.eventfd.write(1).map_err(ChannelError::IOError)?;
         }
 
         result_rx.await.or(Err(ChannelError::RXChannelClosed))
@@ -97,7 +95,7 @@ impl Executor {
             for _ in 0..max_recv_retries {
                 match self.task_rx.try_recv() {
                     Ok(func) => return func(lua),
-                    Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),
+                    Err(TryRecvError::Empty) => tarantool::fiber::sleep(std::time::Duration::new(0, 0)),
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };
             }
