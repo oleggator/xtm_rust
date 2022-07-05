@@ -3,8 +3,10 @@ use std::{collections::LinkedList, rc::Rc, time::Duration};
 use crossbeam_channel::{unbounded, TryRecvError};
 use mlua::Lua;
 use tarantool::fiber;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+// use tracing;
 
-use crate::{ChannelError, Executor, ModuleConfig, Task};
+use crate::{ChannelError, Executor, ModuleConfig, Task, InstrumentedTask};
 
 struct SchedulerArgs<'a> {
     lua: &'a Lua,
@@ -26,7 +28,7 @@ fn scheduler_f(args: Box<SchedulerArgs>) -> i32 {
     } = *args;
 
     let cond = Rc::new(fiber::Cond::new());
-    let (tx, rx) = unbounded::<Task>();
+    let (tx, rx) = unbounded::<InstrumentedTask>();
 
     let mut workers = LinkedList::new();
     for _ in 0..fibers {
@@ -71,7 +73,7 @@ fn scheduler_f(args: Box<SchedulerArgs>) -> i32 {
 struct WorkerArgs<'a> {
     cond: Rc<fiber::Cond>,
     lua: &'a Lua,
-    rx: crossbeam_channel::Receiver<Task>,
+    rx: crossbeam_channel::Receiver<InstrumentedTask>,
     fiber_standby_timeout: f64,
 }
 fn worker_f(args: Box<WorkerArgs>) -> i32 {
@@ -87,7 +89,13 @@ fn worker_f(args: Box<WorkerArgs>) -> i32 {
         .create_function(move |lua, _: ()| {
             loop {
                 match rx.try_recv() {
-                    Ok(task) => match task(lua) {
+                    Ok((func, span_ctx)) => match {
+                        let span = tracing::span!(tracing::Level::TRACE, "fiber pool: exec");
+                        span.set_parent(span_ctx);
+                        let _ = span.enter();
+
+                        func(lua, span.context())
+                    } {
                         Ok(()) => (),
                         Err(ChannelError::TXChannelClosed) => continue,
                         Err(err) => break Err(mlua::Error::external(err)),
