@@ -13,7 +13,7 @@ tarantool = { version = "3.0", default-features = false }
 uuid = { version = "0.8", features = ["serde", "v4"] }
 
 [dependencies.mlua]
-version = "0.6"
+version = "0.7"
 features = ["luajit", "module", "serialize", "vendored"]
 
 [dependencies.xtm_rust]
