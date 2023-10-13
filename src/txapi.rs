@@ -3,7 +3,6 @@ use async_channel;
 use async_channel::TryRecvError;
 use notify::Notify;
 use std::io;
-use std::os::unix::io::{AsRawFd, RawFd};
 use thiserror::Error;
 use tokio::sync::oneshot;
 
@@ -24,15 +23,11 @@ pub enum ChannelError {
 }
 
 pub struct Dispatcher<T> {
-    pub(crate) task_tx: TaskSender<T>,
-    pub(crate) notify: Notify,
+    task_tx: TaskSender<T>,
+    notify: Notify,
 }
 
 impl<T> Dispatcher<T> {
-    pub fn new(task_tx: TaskSender<T>, notify: Notify) -> Self {
-        Self { task_tx, notify }
-    }
-
     pub fn try_clone(&self) -> io::Result<Self> {
         Ok(Self {
             task_tx: self.task_tx.clone(),
@@ -83,10 +78,6 @@ pub struct Executor<T> {
 }
 
 impl<T> Executor<T> {
-    pub fn new(task_rx: TaskReceiver<T>, notify: Notify) -> Self {
-        Self { task_rx, notify }
-    }
-
     pub fn exec(
         &self,
         arg: &T,
@@ -123,18 +114,15 @@ impl<T> Executor<T> {
     }
 }
 
-impl<T> AsRawFd for Executor<T> {
-    fn as_raw_fd(&self) -> RawFd {
-        self.notify.as_raw_fd()
-    }
-}
-
 pub fn channel<T>(buffer: usize) -> io::Result<(Dispatcher<T>, Executor<T>)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
     let notify = Notify::new(0, false)?;
 
     Ok((
-        Dispatcher::new(task_tx, notify.try_clone()?),
-        Executor::new(task_rx, notify),
+        Dispatcher {
+            task_tx,
+            notify: notify.try_clone()?,
+        },
+        Executor { task_rx, notify },
     ))
 }
