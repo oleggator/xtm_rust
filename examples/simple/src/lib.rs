@@ -13,7 +13,7 @@ struct Row {
 
 impl AsTuple for Row {}
 
-async fn module_main(dispatcher: Dispatcher) {
+async fn module_main(dispatcher: Dispatcher<Lua>) {
     let result = dispatcher
         .call(move |_| {
             let mut space = Space::find("some_space").unwrap();

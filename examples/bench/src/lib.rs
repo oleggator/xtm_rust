@@ -4,7 +4,7 @@ use mlua::prelude::*;
 use tokio::time::Instant;
 use xtm_rust::{run_module, Dispatcher, ModuleConfig};
 
-async fn module_main(dispatcher: Dispatcher) {
+async fn module_main(dispatcher: Dispatcher<Lua>) {
     let iterations = 10_000_000;
 
     let worker_n = 6;

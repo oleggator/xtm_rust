@@ -20,14 +20,14 @@ pub fn run_module<Fut, Func>(
     lua: &Lua,
 ) -> io::Result<Fut::Output>
 where
-    Func: FnOnce(Dispatcher) -> Fut,
+    Func: FnOnce(Dispatcher<Lua>) -> Fut,
     Func: Send,
     Fut: Future,
     Fut::Output: Send,
 {
     let (dispatcher, executor) = channel(config.buffer)?;
 
-    let executor_loop = &mut |args: Box<(&Lua, Executor)>| {
+    let executor_loop = &mut |args: Box<(&Lua, Executor<Lua>)>| {
         let (lua, executor) = *args;
 
         let thread_func = lua.create_function(move |lua, _: ()| {
