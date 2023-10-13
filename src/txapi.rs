@@ -1,10 +1,10 @@
-use tokio::sync::oneshot;
+use crate::eventfd;
 use async_channel;
 use async_channel::TryRecvError;
-use thiserror::Error;
-use crate::eventfd;
-use std::os::unix::io::{AsRawFd, RawFd};
 use std::io;
+use std::os::unix::io::{AsRawFd, RawFd};
+use thiserror::Error;
+use tokio::sync::oneshot;
 
 type Task<T> = Box<dyn FnOnce(&T) -> Result<(), ChannelError> + Send>;
 type TaskSender<T> = async_channel::Sender<Task<T>>;
@@ -40,19 +40,21 @@ impl<T> Dispatcher<T> {
     }
 
     pub async fn call<Func, Ret>(&self, func: Func) -> Result<Ret, ChannelError>
-        where
-            Ret: Send + 'static,
-            Func: FnOnce(&T) -> Ret,
-            Func: Send + 'static,
+    where
+        Ret: Send + 'static,
+        Func: FnOnce(&T) -> Ret,
+        Func: Send + 'static,
     {
         let (result_tx, result_rx) = oneshot::channel();
         let handler_func: Task<T> = Box::new(move |arg| {
             if result_tx.is_closed() {
-                return Err(ChannelError::TXChannelClosed)
+                return Err(ChannelError::TXChannelClosed);
             };
 
             let result = func(arg);
-            result_tx.send(result).or(Err(ChannelError::TXChannelClosed))
+            result_tx
+                .send(result)
+                .or(Err(ChannelError::TXChannelClosed))
         });
 
         let task_tx_len = self.task_tx.len();
@@ -74,7 +76,6 @@ impl<T> Dispatcher<T> {
     }
 }
 
-
 pub struct Executor<T> {
     task_rx: TaskReceiver<T>,
     eventfd: eventfd::EventFd,
@@ -85,7 +86,12 @@ impl<T> Executor<T> {
         Self { task_rx, eventfd }
     }
 
-    pub fn exec(&self, arg: &T, max_recv_retries: usize, coio_timeout: f64) -> Result<(), ChannelError> {
+    pub fn exec(
+        &self,
+        arg: &T,
+        max_recv_retries: usize,
+        coio_timeout: f64,
+    ) -> Result<(), ChannelError> {
         loop {
             match self.task_rx.try_recv() {
                 Ok(func) => return func(arg),
@@ -126,5 +132,8 @@ pub fn channel<T>(buffer: usize) -> io::Result<(Dispatcher<T>, Executor<T>)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
     let efd = eventfd::EventFd::new(0, false)?;
 
-    Ok((Dispatcher::new(task_tx, efd.try_clone()?), Executor::new(task_rx, efd)))
+    Ok((
+        Dispatcher::new(task_tx, efd.try_clone()?),
+        Executor::new(task_rx, efd),
+    ))
 }

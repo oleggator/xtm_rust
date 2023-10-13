@@ -1,14 +1,14 @@
-use std::io;
-use std::os::unix::io::{AsRawFd, RawFd};
-use std::mem;
 use libc;
-use tarantool::ffi::tarantool::CoIOFlags;
+use std::io;
+use std::mem;
+use std::os::unix::io::{AsRawFd, RawFd};
 use tarantool::coio;
+use tarantool::ffi::tarantool::CoIOFlags;
 
 pub struct EventFd(RawFd);
 
 impl EventFd {
-    pub fn new(init: u32, is_semaphore: bool) -> io::Result<Self> {        
+    pub fn new(init: u32, is_semaphore: bool) -> io::Result<Self> {
         let flags = libc::EFD_NONBLOCK | libc::EFD_CLOEXEC;
         let flags = if is_semaphore {
             flags | libc::EFD_SEMAPHORE
@@ -35,7 +35,11 @@ impl EventFd {
         let val_ptr: *mut u64 = &mut val;
 
         let rv = unsafe {
-            libc::read(self.0, val_ptr as *mut std::ffi::c_void, mem::size_of::<u64>())
+            libc::read(
+                self.0,
+                val_ptr as *mut std::ffi::c_void,
+                mem::size_of::<u64>(),
+            )
         };
         if rv < 0 {
             return Err(io::Error::last_os_error());
@@ -48,7 +52,11 @@ impl EventFd {
         let val_ptr: *const u64 = &val;
 
         let rv = unsafe {
-            libc::write(self.0, val_ptr as *const std::ffi::c_void, mem::size_of::<u64>())
+            libc::write(
+                self.0,
+                val_ptr as *const std::ffi::c_void,
+                mem::size_of::<u64>(),
+            )
         };
         if rv < 0 {
             return Err(io::Error::last_os_error());

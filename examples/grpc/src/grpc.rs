@@ -29,14 +29,18 @@ impl UserApi for UserAPIService {
         let msg = request.into_inner();
         let username = msg.username.clone();
 
-        let (uuid, username) = self.dispatcher.call(move |_| {
-            let mut space = Space::find("users").unwrap();
+        let (uuid, username) = self
+            .dispatcher
+            .call(move |_| {
+                let mut space = Space::find("users").unwrap();
 
-            let tuple = (Uuid::new_v4(), username);
-            space.replace(&tuple).unwrap();
+                let tuple = (Uuid::new_v4(), username);
+                space.replace(&tuple).unwrap();
 
-            tuple
-        }).await.unwrap();
+                tuple
+            })
+            .await
+            .unwrap();
 
         Ok(Response::new(userapi::CreateUserReply {
             uuid: uuid.to_string(),
@@ -45,7 +49,7 @@ impl UserApi for UserAPIService {
     }
 }
 
-pub (crate) async fn module_main(dispatcher: Dispatcher<Lua>) {
+pub(crate) async fn module_main(dispatcher: Dispatcher<Lua>) {
     let addr = "0.0.0.0:50051".parse().unwrap();
     let service = UserAPIService { dispatcher };
 

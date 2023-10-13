@@ -1,12 +1,12 @@
-use std::io;
 use std::future::Future;
+use std::io;
 
 use crossbeam_utils::thread;
 use mlua::Lua;
 use tokio::runtime;
 
-pub use txapi::*;
 use tarantool::fiber::Fiber;
+pub use txapi::*;
 
 mod eventfd;
 mod txapi;
@@ -30,16 +30,18 @@ where
     let executor_loop = &mut |args: Box<(&Lua, Executor<Lua>)>| {
         let (lua, executor) = *args;
 
-        let thread_func = lua.create_function(move |lua, _: ()| {
-            Ok(loop {
-                match executor.exec(lua, config.max_recv_retries, config.coio_timeout) {
-                    Ok(_) => continue,
-                    Err(ChannelError::TXChannelClosed) => continue,
-                    Err(ChannelError::RXChannelClosed) => break 0,
-                    Err(_err) => break -1,
-                }
+        let thread_func = lua
+            .create_function(move |lua, _: ()| {
+                Ok(loop {
+                    match executor.exec(lua, config.max_recv_retries, config.coio_timeout) {
+                        Ok(_) => continue,
+                        Err(ChannelError::TXChannelClosed) => continue,
+                        Err(ChannelError::RXChannelClosed) => break 0,
+                        Err(_err) => break -1,
+                    }
+                })
             })
-        }).unwrap();
+            .unwrap();
         let thread = lua.create_thread(thread_func).unwrap();
         thread.resume(()).unwrap()
     };
