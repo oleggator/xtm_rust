@@ -1,4 +1,3 @@
-use libc;
 use std::io;
 use std::mem;
 use std::os::unix::io::{AsRawFd, RawFd};

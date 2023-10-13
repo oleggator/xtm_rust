@@ -1,5 +1,4 @@
 use crate::notify;
-use async_channel;
 use async_channel::TryRecvError;
 use notify::Notify;
 use std::io;
@@ -70,6 +69,10 @@ impl<T> Dispatcher<T> {
     pub fn len(&self) -> usize {
         self.task_tx.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.task_tx.is_empty()
+    }
 }
 
 pub struct Executor<T> {
@@ -111,6 +114,10 @@ impl<T> Executor<T> {
 
     pub fn len(&self) -> usize {
         self.task_rx.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.task_rx.is_empty()
     }
 }
 
