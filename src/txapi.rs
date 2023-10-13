@@ -2,6 +2,7 @@ use crate::notify;
 use async_channel::TryRecvError;
 use notify::Notify;
 use std::io;
+use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::oneshot;
 
@@ -97,7 +98,7 @@ impl<T> Executor<T> {
             for _ in 0..max_recv_retries {
                 match self.task_rx.try_recv() {
                     Ok(func) => return func(arg),
-                    Err(TryRecvError::Empty) => tarantool::fiber::sleep(0.),
+                    Err(TryRecvError::Empty) => tarantool::fiber::sleep(Duration::new(0, 0)),
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };
             }

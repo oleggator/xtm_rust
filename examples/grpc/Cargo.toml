@@ -9,7 +9,7 @@ edition = "2018"
 tokio = "1"
 tonic = "0.4"
 prost = "0.7"
-tarantool = { version = "0.4", default-features = false }
+tarantool = { version = "3.0", default-features = false }
 uuid = { version = "0.8", features = ["serde", "v4"] }
 
 [dependencies.mlua]
