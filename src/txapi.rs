@@ -1,6 +1,7 @@
-use crate::eventfd;
+use crate::notify;
 use async_channel;
 use async_channel::TryRecvError;
+use notify::Notify;
 use std::io;
 use std::os::unix::io::{AsRawFd, RawFd};
 use thiserror::Error;
@@ -24,18 +25,18 @@ pub enum ChannelError {
 
 pub struct Dispatcher<T> {
     pub(crate) task_tx: TaskSender<T>,
-    pub(crate) eventfd: eventfd::EventFd,
+    pub(crate) notify: Notify,
 }
 
 impl<T> Dispatcher<T> {
-    pub fn new(task_tx: TaskSender<T>, eventfd: eventfd::EventFd) -> Self {
-        Self { task_tx, eventfd }
+    pub fn new(task_tx: TaskSender<T>, notify: Notify) -> Self {
+        Self { task_tx, notify }
     }
 
-    pub fn try_clone(&self) -> std::io::Result<Self> {
+    pub fn try_clone(&self) -> io::Result<Self> {
         Ok(Self {
             task_tx: self.task_tx.clone(),
-            eventfd: self.eventfd.try_clone()?,
+            notify: self.notify.try_clone()?,
         })
     }
 
@@ -63,7 +64,7 @@ impl<T> Dispatcher<T> {
         }
 
         if task_tx_len == 0 {
-            if let Err(err) = self.eventfd.write(1) {
+            if let Err(err) = self.notify.notify(1) {
                 return Err(ChannelError::IOError(err));
             }
         }
@@ -78,12 +79,12 @@ impl<T> Dispatcher<T> {
 
 pub struct Executor<T> {
     task_rx: TaskReceiver<T>,
-    eventfd: eventfd::EventFd,
+    notify: Notify,
 }
 
 impl<T> Executor<T> {
-    pub fn new(task_rx: TaskReceiver<T>, eventfd: eventfd::EventFd) -> Self {
-        Self { task_rx, eventfd }
+    pub fn new(task_rx: TaskReceiver<T>, notify: Notify) -> Self {
+        Self { task_rx, notify }
     }
 
     pub fn exec(
@@ -106,14 +107,14 @@ impl<T> Executor<T> {
                     Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
                 };
             }
-            let _ = self.eventfd.coio_read(coio_timeout);
+            let _ = self.notify.notified_coio(coio_timeout);
         }
     }
 
     pub fn try_clone(&self) -> io::Result<Self> {
         Ok(Self {
             task_rx: self.task_rx.clone(),
-            eventfd: self.eventfd.try_clone()?,
+            notify: self.notify.try_clone()?,
         })
     }
 
@@ -124,16 +125,16 @@ impl<T> Executor<T> {
 
 impl<T> AsRawFd for Executor<T> {
     fn as_raw_fd(&self) -> RawFd {
-        self.eventfd.as_raw_fd()
+        self.notify.as_raw_fd()
     }
 }
 
 pub fn channel<T>(buffer: usize) -> io::Result<(Dispatcher<T>, Executor<T>)> {
     let (task_tx, task_rx) = async_channel::bounded(buffer);
-    let efd = eventfd::EventFd::new(0, false)?;
+    let notify = Notify::new(0, false)?;
 
     Ok((
-        Dispatcher::new(task_tx, efd.try_clone()?),
-        Executor::new(task_rx, efd),
+        Dispatcher::new(task_tx, notify.try_clone()?),
+        Executor::new(task_rx, notify),
     ))
 }

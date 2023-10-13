@@ -5,9 +5,9 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use tarantool::coio;
 use tarantool::ffi::tarantool::CoIOFlags;
 
-pub struct EventFd(RawFd);
+pub struct Notify(RawFd);
 
-impl EventFd {
+impl Notify {
     pub fn new(init: u32, is_semaphore: bool) -> io::Result<Self> {
         let flags = libc::EFD_NONBLOCK | libc::EFD_CLOEXEC;
         let flags = if is_semaphore {
@@ -30,7 +30,7 @@ impl EventFd {
         Ok(Self(rv))
     }
 
-    pub fn read(&self) -> io::Result<u64> {
+    pub fn notified(&self) -> io::Result<u64> {
         let mut val: u64 = 0;
         let val_ptr: *mut u64 = &mut val;
 
@@ -48,7 +48,7 @@ impl EventFd {
         Ok(val)
     }
 
-    pub fn write(&self, val: u64) -> io::Result<()> {
+    pub fn notify(&self, val: u64) -> io::Result<()> {
         let val_ptr: *const u64 = &val;
 
         let rv = unsafe {
@@ -65,24 +65,24 @@ impl EventFd {
         Ok(())
     }
 
-    pub fn coio_read(&self, timeout: f64) -> io::Result<u64> {
+    pub fn notified_coio(&self, timeout: f64) -> io::Result<u64> {
         coio::coio_wait(self.as_raw_fd(), CoIOFlags::READ, timeout)?;
-        self.read()
+        self.notified()
     }
 
-    pub fn coio_write(&self, val: u64, timeout: f64) -> io::Result<()> {
+    pub fn notify_coio(&self, val: u64, timeout: f64) -> io::Result<()> {
         coio::coio_wait(self.as_raw_fd(), CoIOFlags::WRITE, timeout)?;
-        self.write(val)
+        self.notify(val)
     }
 }
 
-impl Drop for EventFd {
+impl Drop for Notify {
     fn drop(&mut self) {
         unsafe { libc::close(self.0) };
     }
 }
 
-impl AsRawFd for EventFd {
+impl AsRawFd for Notify {
     fn as_raw_fd(&self) -> RawFd {
         self.0
     }
