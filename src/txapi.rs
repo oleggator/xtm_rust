@@ -6,20 +6,29 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::oneshot;
 
-type Task<T> = Box<dyn FnOnce(&T) -> Result<(), ChannelError> + Send>;
+type Task<T> = Box<dyn FnOnce(&T) -> Result<(), ExecError> + Send>;
 type TaskSender<T> = async_channel::Sender<Task<T>>;
 type TaskReceiver<T> = async_channel::Receiver<Task<T>>;
 
 #[derive(Error, Debug)]
-pub enum ChannelError {
-    #[error("tx channel is closed")]
-    TXChannelClosed,
+pub enum CallError {
+    #[error("task channel is closed")]
+    TaskChannelSendError,
 
-    #[error("rx channel is closed")]
-    RXChannelClosed,
+    #[error("result channel is closed")]
+    ResultChannelRecvError,
 
-    #[error("io error")]
-    IOError(io::Error),
+    #[error("notify error")]
+    NotifyError(io::Error),
+}
+
+#[derive(Error, Debug)]
+pub enum ExecError {
+    #[error("result channel is closed")]
+    ResultChannelSendError,
+
+    #[error("task channel is closed")]
+    TaskChannelRecvError,
 }
 
 pub struct Dispatcher<T> {
@@ -35,7 +44,7 @@ impl<T> Dispatcher<T> {
         })
     }
 
-    pub async fn call<Func, Ret>(&self, func: Func) -> Result<Ret, ChannelError>
+    pub async fn call<Func, Ret>(&self, func: Func) -> Result<Ret, CallError>
     where
         Ret: Send + 'static,
         Func: FnOnce(&T) -> Ret,
@@ -44,27 +53,27 @@ impl<T> Dispatcher<T> {
         let (result_tx, result_rx) = oneshot::channel();
         let handler_func: Task<T> = Box::new(move |arg| {
             if result_tx.is_closed() {
-                return Err(ChannelError::TXChannelClosed);
+                return Err(ExecError::ResultChannelSendError);
             };
 
             let result = func(arg);
             result_tx
                 .send(result)
-                .or(Err(ChannelError::TXChannelClosed))
+                .or(Err(ExecError::ResultChannelSendError))
         });
 
         let task_tx_len = self.task_tx.len();
         if let Err(_channel_closed) = self.task_tx.send(handler_func).await {
-            return Err(ChannelError::TXChannelClosed);
+            return Err(CallError::TaskChannelSendError);
         }
 
         if task_tx_len == 0 {
             if let Err(err) = self.notify.notify(1) {
-                return Err(ChannelError::IOError(err));
+                return Err(CallError::NotifyError(err));
             }
         }
 
-        result_rx.await.or(Err(ChannelError::RXChannelClosed))
+        result_rx.await.or(Err(CallError::ResultChannelRecvError))
     }
 
     pub fn len(&self) -> usize {
@@ -87,19 +96,19 @@ impl<T> Executor<T> {
         arg: &T,
         max_recv_retries: usize,
         coio_timeout: f64,
-    ) -> Result<(), ChannelError> {
+    ) -> Result<(), ExecError> {
         loop {
             match self.task_rx.try_recv() {
                 Ok(func) => return func(arg),
                 Err(TryRecvError::Empty) => (),
-                Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
+                Err(TryRecvError::Closed) => return Err(ExecError::TaskChannelRecvError),
             };
 
             for _ in 0..max_recv_retries {
                 match self.task_rx.try_recv() {
                     Ok(func) => return func(arg),
                     Err(TryRecvError::Empty) => tarantool::fiber::sleep(Duration::new(0, 0)),
-                    Err(TryRecvError::Closed) => return Err(ChannelError::RXChannelClosed),
+                    Err(TryRecvError::Closed) => return Err(ExecError::TaskChannelRecvError),
                 };
             }
             let _ = self.notify.notified_coio(coio_timeout);

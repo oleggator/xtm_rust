@@ -35,9 +35,8 @@ where
                 Ok(loop {
                     match executor.exec(lua, config.max_recv_retries, config.coio_timeout) {
                         Ok(_) => continue,
-                        Err(ChannelError::TXChannelClosed) => continue,
-                        Err(ChannelError::RXChannelClosed) => break 0,
-                        Err(_err) => break -1,
+                        Err(ExecError::ResultChannelSendError) => continue,
+                        Err(ExecError::TaskChannelRecvError) => break 0,
                     }
                 })
             })
