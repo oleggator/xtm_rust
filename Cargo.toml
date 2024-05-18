@@ -15,8 +15,8 @@ crossbeam-utils = "0.8"
 serde = "1.0"
 
 [dependencies.mlua]
-version = "0.7"
-features = ["luajit", "serialize", "vendored"]
+version = "0.9"
+features = ["luajit", "serialize"]
 
 [dependencies.tokio]
 version = "1"
