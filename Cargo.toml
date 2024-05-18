@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tarantool = { version = "3.0", default-features = false }
+tarantool = { version = "4.0", default-features = false }
 async-channel = "2.3"
 thiserror = "1.0"
 libc = "0.2"

@@ -1,7 +1,7 @@
 use mlua::prelude::*;
 use serde::{Deserialize, Serialize};
 use tarantool::space::Space;
-use tarantool::tuple::AsTuple;
+use tarantool::tuple::Encode;
 use xtm_rust::Dispatcher;
 use xtm_rust::{run_module, ModuleConfig};
 
@@ -11,12 +11,12 @@ struct Row {
     pub str_field: String,
 }
 
-impl AsTuple for Row {}
+impl Encode for Row {}
 
 async fn module_main(dispatcher: Dispatcher<Lua>) {
     let result = dispatcher
         .call(move |_| {
-            let mut space = Space::find("some_space").unwrap();
+            let space = Space::find("some_space").unwrap();
             let _result = space
                 .replace(&Row {
                     int_field: 1,

@@ -32,7 +32,7 @@ impl UserApi for UserAPIService {
         let (uuid, username) = self
             .dispatcher
             .call(move |_| {
-                let mut space = Space::find("users").unwrap();
+                let space = Space::find("users").unwrap();
 
                 let tuple = (Uuid::new_v4(), username);
                 space.replace(&tuple).unwrap();
