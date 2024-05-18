@@ -7,7 +7,7 @@
 
 ### Build
 ```bash
-tarantoolctl rocks make
+tt rocks make
 ```
 
 ### Run
