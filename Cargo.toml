@@ -34,3 +34,7 @@ members = [
     "examples/bench",
     "examples/grpc",
 ]
+
+[profile.release]
+lto = true
+codegen-units = 1
