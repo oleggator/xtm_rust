@@ -1,7 +1,7 @@
 mod grpc;
 
 use mlua::prelude::*;
-use xtm_rust::{run_module, ModuleConfig};
+use xtm_rust::{run_module_with_mlua, ModuleConfig};
 
 #[mlua::lua_module]
 fn grpc(lua: &Lua) -> LuaResult<LuaTable> {
@@ -11,8 +11,7 @@ fn grpc(lua: &Lua) -> LuaResult<LuaTable> {
         "start",
         lua.create_function_mut(|lua, (config,): (LuaValue,)| {
             let config: ModuleConfig = lua.from_value(config)?;
-
-            run_module(grpc::module_main, config, lua).map_err(LuaError::external)
+            run_module_with_mlua(grpc::module_main, config, lua).map_err(LuaError::external)
         })?,
     )?;
 

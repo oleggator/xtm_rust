@@ -2,7 +2,7 @@ use futures::future::join_all;
 use hdrhistogram::{sync::SyncHistogram, Histogram};
 use mlua::prelude::*;
 use tokio::time::Instant;
-use xtm_rust::{run_module, Dispatcher, ModuleConfig};
+use xtm_rust::{run_module_with_mlua, Dispatcher, ModuleConfig};
 
 async fn module_main(dispatcher: Dispatcher<Lua>) {
     let iterations = 10_000_000;
@@ -57,8 +57,7 @@ fn bench(lua: &Lua) -> LuaResult<LuaTable> {
         "start",
         lua.create_function_mut(|lua, (config,): (LuaValue,)| {
             let config: ModuleConfig = lua.from_value(config)?;
-
-            run_module(module_main, config, lua).map_err(LuaError::external)
+            run_module_with_mlua(module_main, config, lua).map_err(LuaError::external)
         })?,
     )?;
 

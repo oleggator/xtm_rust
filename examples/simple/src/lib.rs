@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use tarantool::space::Space;
 use tarantool::tuple::Encode;
 use xtm_rust::Dispatcher;
-use xtm_rust::{run_module, ModuleConfig};
+use xtm_rust::{run_module_with_mlua, ModuleConfig};
 
 #[derive(Serialize, Deserialize)]
 struct Row {
@@ -55,8 +55,7 @@ fn simple(lua: &Lua) -> LuaResult<LuaTable> {
         "start",
         lua.create_function_mut(|lua, (config,): (LuaValue,)| {
             let config: ModuleConfig = lua.from_value(config)?;
-
-            run_module(module_main, config, lua).map_err(LuaError::external)
+            run_module_with_mlua(module_main, config, lua).map_err(LuaError::external)
         })?,
     )?;
 
