@@ -76,10 +76,12 @@ impl<T> Dispatcher<T> {
         result_rx.await.or(Err(CallError::ResultChannelRecvError))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.task_tx.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.task_tx.is_empty()
     }
@@ -122,10 +124,12 @@ impl<T> Executor<T> {
         })
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.task_rx.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.task_rx.is_empty()
     }

@@ -31,11 +31,10 @@ where
         let (lua, executor) = *args;
 
         let thread_func = lua
-            .create_function(move |lua, _: ()| {
+            .create_function(move |lua, ()| {
                 Ok(loop {
                     match executor.exec(lua, config.max_recv_retries, config.coio_timeout) {
-                        Ok(_) => continue,
-                        Err(ExecError::ResultChannelSendError) => continue,
+                        Ok(()) | Err(ExecError::ResultChannelSendError) => continue,
                         Err(ExecError::TaskChannelRecvError) => break 0,
                     }
                 })

@@ -33,13 +33,7 @@ impl Notify {
         let mut val: u64 = 0;
         let val_ptr: *mut u64 = &mut val;
 
-        let rv = unsafe {
-            libc::read(
-                self.0,
-                val_ptr as *mut std::ffi::c_void,
-                mem::size_of::<u64>(),
-            )
-        };
+        let rv = unsafe { libc::read(self.0, val_ptr.cast(), mem::size_of::<u64>()) };
         if rv < 0 {
             return Err(io::Error::last_os_error());
         }
@@ -50,13 +44,7 @@ impl Notify {
     pub fn notify(&self, val: u64) -> io::Result<()> {
         let val_ptr: *const u64 = &val;
 
-        let rv = unsafe {
-            libc::write(
-                self.0,
-                val_ptr as *const std::ffi::c_void,
-                mem::size_of::<u64>(),
-            )
-        };
+        let rv = unsafe { libc::write(self.0, val_ptr.cast(), mem::size_of::<u64>()) };
         if rv < 0 {
             return Err(io::Error::last_os_error());
         }
@@ -69,6 +57,7 @@ impl Notify {
         self.notified()
     }
 
+    #[allow(dead_code)]
     pub fn notify_coio(&self, val: u64, timeout: f64) -> io::Result<()> {
         coio::coio_wait(self.as_raw_fd(), CoIOFlags::WRITE, timeout)?;
         self.notify(val)
