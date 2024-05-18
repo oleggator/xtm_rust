@@ -1,16 +1,16 @@
 [package]
 name = "grpc"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = "1"
-tonic = "0.4"
-prost = "0.7"
+tonic = "0.11"
+prost = "0.12"
 tarantool = { version = "4.0", default-features = false }
-uuid = { version = "0.8", features = ["serde", "v4"] }
+uuid = { version = "1.8", features = ["serde", "v4"] }
 
 [dependencies.mlua]
 version = "0.7"
@@ -20,7 +20,7 @@ features = ["luajit", "module", "serialize", "vendored"]
 path = "../.."
 
 [build-dependencies]
-tonic-build = "0.4"
+tonic-build = "0.11"
 
 [lib]
 name = "grpc"
