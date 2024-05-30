@@ -12,8 +12,8 @@ hdrhistogram = "7.2"
 tokio = "1"
 
 [dependencies.mlua]
-version = "0.9"
-features = ["luajit", "module", "serialize"]
+version = "0.7"
+features = ["luajit", "module", "serialize", "vendored"]
 
 [dependencies.xtm_rust]
 path = "../.."
