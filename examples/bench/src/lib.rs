@@ -7,7 +7,7 @@ use xtm_rust::{Dispatcher, ModuleConfig, run_module_with_mlua};
 async fn module_main(dispatcher: Dispatcher<Lua>) {
     let iterations = 10_000_000;
 
-    let worker_n = 6;
+    let worker_n = 128;
     let iterations_per_worker = iterations / worker_n;
     let mut workers = Vec::new();
 

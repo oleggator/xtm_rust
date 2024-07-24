@@ -4,6 +4,7 @@ mod txapi;
 
 use std::future::Future;
 use std::io;
+use std::rc::Rc;
 
 use crossbeam_utils::thread;
 use mlua::Lua;
@@ -23,10 +24,9 @@ where
     Fut: Future,
     Fut::Output: Send,
 {
-    let max_recv_retries = config.max_recv_retries;
     let coio_timeout = config.coio_timeout;
-    run_module(module_main, config, |executor: Executor<Lua>| {
-        create_fiber(lua, max_recv_retries, coio_timeout, executor)
+    run_module(module_main, config, |executor: Rc<Executor<Lua>>| {
+        create_fiber(lua, coio_timeout, executor)
     })
 }
 
@@ -39,13 +39,15 @@ where
     Func: Send + FnOnce(Dispatcher<T>) -> Fut,
     Fut: Future,
     Fut::Output: Send,
-    CreateFiber: Fn(Executor<T>) -> tarantool::fiber::JoinHandle<'a, Result<i32, mlua::Error>>,
+    CreateFiber: Fn(Rc<Executor<T>>) -> tarantool::fiber::JoinHandle<'a, Result<i32, mlua::Error>>,
 {
     let (dispatcher, executor) = channel(config.buffer)?;
 
+    let executor = Rc::new(executor);
+
     let mut fibers = Vec::with_capacity(config.fibers);
     for _ in 0..config.fibers {
-        let executor = executor.try_clone()?;
+        let executor = executor.clone();
         let fiber = create_fiber(executor);
         fibers.push(fiber);
     }
@@ -73,12 +75,11 @@ where
 
 fn create_fiber(
     lua: &Lua,
-    max_recv_retries: usize,
     coio_timeout: f64,
-    executor: Executor<Lua>,
+    executor: Rc<Executor<Lua>>,
 ) -> tarantool::fiber::JoinHandle<'_, Result<i32, mlua::Error>> {
     let thread_func = move |lua, ()| loop {
-        match executor.exec(lua, max_recv_retries, coio_timeout) {
+        match executor.exec(lua, coio_timeout) {
             Ok(()) | Err(ExecError::ResultChannelSendError) => continue,
             Err(ExecError::TaskChannelRecvError) => break Ok(0),
         }
@@ -88,7 +89,7 @@ fn create_fiber(
 
     Fyber::spawn_deferred(
         "xtm".to_owned(),
-        move || -> std::result::Result<i32, mlua::Error> { thread.resume(()) },
+        move || -> Result<i32, mlua::Error> { thread.resume(()) },
         true,
         None,
     )

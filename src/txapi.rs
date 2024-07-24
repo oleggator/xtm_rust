@@ -1,14 +1,13 @@
-use crate::notify;
-use async_channel::TryRecvError;
-use notify::Notify;
+use crate::notify::Notify;
+use parking_lot::Mutex;
+use std::cell::RefCell;
 use std::io;
-use std::time::Duration;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::oneshot;
 
 type Task<T> = Box<dyn FnOnce(&T) -> Result<(), ExecError> + Send>;
-type TaskSender<T> = async_channel::Sender<Task<T>>;
-type TaskReceiver<T> = async_channel::Receiver<Task<T>>;
 
 #[derive(Error, Debug)]
 pub enum CallError {
@@ -31,16 +30,24 @@ pub enum ExecError {
     TaskChannelRecvError,
 }
 
+struct Channel<T> {
+    buf: Mutex<Vec<Task<T>>>,
+    rx_notify: tokio::sync::Notify,
+
+    dispatchers: AtomicUsize,
+}
+
 pub struct Dispatcher<T> {
-    task_tx: TaskSender<T>,
-    notify: Notify,
+    channel: Arc<Channel<T>>,
+    tx_notify: Notify,
 }
 
 impl<T> Dispatcher<T> {
     pub fn try_clone(&self) -> io::Result<Self> {
+        self.channel.dispatchers.fetch_add(1, Ordering::Relaxed);
         Ok(Self {
-            task_tx: self.task_tx.clone(),
-            notify: self.notify.try_clone()?,
+            channel: self.channel.clone(),
+            tx_notify: self.tx_notify.try_clone()?,
         })
     }
 
@@ -62,88 +69,93 @@ impl<T> Dispatcher<T> {
                 .or(Err(ExecError::ResultChannelSendError))
         });
 
-        let task_tx_len = self.task_tx.len();
-        if let Err(_channel_closed) = self.task_tx.send(handler_func).await {
-            return Err(CallError::TaskChannelSendError);
+        loop {
+            {
+                let mut write_buf = self.channel.buf.lock();
+                if write_buf.len() < write_buf.capacity() {
+                    write_buf.push(handler_func);
+                    break;
+                }
+            }
+
+            self.channel.rx_notify.notified().await;
         }
 
-        if task_tx_len == 0
-            && let Err(err) = self.notify.notify(1)
-        {
-            return Err(CallError::NotifyError(err));
-        }
-
+        self.tx_notify.notify(1).unwrap();
         result_rx.await.or(Err(CallError::ResultChannelRecvError))
     }
+}
 
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.task_tx.len()
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.task_tx.is_empty()
+impl<T> Drop for Dispatcher<T> {
+    fn drop(&mut self) {
+        self.channel.dispatchers.fetch_sub(1, Ordering::Relaxed);
+        self.tx_notify.notify(1).unwrap();
     }
 }
 
 pub struct Executor<T> {
-    task_rx: TaskReceiver<T>,
-    notify: Notify,
+    chan: Arc<Channel<T>>,
+    read_buf: RefCell<Vec<Task<T>>>,
+    tx_notify: Notify,
+    // begin: Cell<usize>,
 }
 
 impl<T> Executor<T> {
-    pub fn exec(
-        &self,
-        arg: &T,
-        max_recv_retries: usize,
-        coio_timeout: f64,
-    ) -> Result<(), ExecError> {
-        loop {
-            match self.task_rx.try_recv() {
-                Ok(func) => return func(arg),
-                Err(TryRecvError::Empty) => (),
-                Err(TryRecvError::Closed) => return Err(ExecError::TaskChannelRecvError),
-            };
-
-            for _ in 0..max_recv_retries {
-                match self.task_rx.try_recv() {
-                    Ok(func) => return func(arg),
-                    Err(TryRecvError::Empty) => tarantool::fiber::sleep(Duration::new(0, 0)),
-                    Err(TryRecvError::Closed) => return Err(ExecError::TaskChannelRecvError),
-                };
-            }
-            let _ = self.notify.notified_coio(coio_timeout);
+    pub fn exec(&self, arg: &T, coio_timeout: f64) -> Result<(), ExecError> {
+        if let Some(func) = self.read_buf.borrow_mut().pop() {
+            return func(arg);
         }
-    }
 
-    pub fn try_clone(&self) -> io::Result<Self> {
-        Ok(Self {
-            task_rx: self.task_rx.clone(),
-            notify: self.notify.try_clone()?,
-        })
-    }
+        loop {
+            let dispatchers = self.chan.dispatchers.load(Ordering::Relaxed);
+            if dispatchers == 0 {
+                return Err(ExecError::TaskChannelRecvError);
+            }
 
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.task_rx.len()
-    }
+            {
+                let mut write_buf = self.chan.buf.lock();
+                std::mem::swap(&mut *self.read_buf.borrow_mut(), &mut *write_buf);
+                self.chan.rx_notify.notify_one();
+            }
 
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.task_rx.is_empty()
+            // TODO: we should pop from begin
+            if let Some(func) = self.read_buf.borrow_mut().pop() {
+                return func(arg);
+            }
+
+            if let Ok(n) = self.tx_notify.notified_coio(coio_timeout) {
+                // println!("{}", n);
+            } else {
+                eprint!("*");
+            }
+
+            // let _ = &self.tx_notify;
+            // tarantool::fiber::sleep(std::time::Duration::ZERO);
+        }
     }
 }
 
 pub fn channel<T>(buffer: usize) -> io::Result<(Dispatcher<T>, Executor<T>)> {
-    let (task_tx, task_rx) = async_channel::bounded(buffer);
-    let notify = Notify::new(0, false)?;
+    let tx_notify = Notify::new(0, false)?;
+    let rx_notify = tokio::sync::Notify::new();
+
+    let buf = Mutex::new(Vec::with_capacity(buffer));
+    let chan = Arc::new(Channel {
+        buf,
+        rx_notify,
+        dispatchers: AtomicUsize::new(1),
+    });
 
     Ok((
         Dispatcher {
-            task_tx,
-            notify: notify.try_clone()?,
+            channel: chan.clone(),
+            tx_notify: tx_notify.try_clone()?,
         },
-        Executor { task_rx, notify },
+        Executor {
+            chan,
+            read_buf: RefCell::new(Vec::with_capacity(buffer)),
+            tx_notify,
+            // begin: 0,
+        },
     ))
 }

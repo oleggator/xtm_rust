@@ -9,6 +9,7 @@ edition = "2024"
 tarantool = { version = "8.0.0", default-features = false }
 async-channel = "2.5"
 thiserror = "2.0"
+parking_lot = "0.12"
 libc = "0.2"
 crossbeam-utils = "0.8"
 serde = "1.0"
@@ -39,3 +40,4 @@ members = [
 [profile.release]
 lto = true
 codegen-units = 1
+debug = "limited"

@@ -14,10 +14,10 @@ pub struct ModuleConfig {
 impl Default for ModuleConfig {
     fn default() -> Self {
         Self {
-            buffer: 128,
+            buffer: 4096,
             fibers: 16,
             max_recv_retries: 100,
-            coio_timeout: 1.0,
+            coio_timeout: 0.1,
             runtime: RuntimeConfig::default(),
         }
     }
