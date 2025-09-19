@@ -7,7 +7,8 @@
 
 ### Build
 ```bash
-tt rocks make
+make build
+make install
 ```
 
 ### Run

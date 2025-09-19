@@ -67,10 +67,10 @@ impl<T> Dispatcher<T> {
             return Err(CallError::TaskChannelSendError);
         }
 
-        if task_tx_len == 0 {
-            if let Err(err) = self.notify.notify(1) {
-                return Err(CallError::NotifyError(err));
-            }
+        if task_tx_len == 0
+            && let Err(err) = self.notify.notify(1)
+        {
+            return Err(CallError::NotifyError(err));
         }
 
         result_rx.await.or(Err(CallError::ResultChannelRecvError))

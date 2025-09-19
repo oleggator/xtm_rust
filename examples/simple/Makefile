@@ -1,4 +1,5 @@
 build:
 	cargo build --release
 install:
-	cp ../../target/release/libsimple.so $(TARANTOOL_INSTALL_LIBDIR)/simple.so
+	mkdir -p .rocks/lib/tarantool/
+	cp ../../target/release/libsimple.so .rocks/lib/tarantool/simple.so

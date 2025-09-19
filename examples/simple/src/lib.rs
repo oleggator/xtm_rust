@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use tarantool::space::Space;
 use tarantool::tuple::Encode;
 use xtm_rust::Dispatcher;
-use xtm_rust::{run_module_with_mlua, ModuleConfig};
+use xtm_rust::{ModuleConfig, run_module_with_mlua};
 
 #[derive(Serialize, Deserialize)]
 struct Row {

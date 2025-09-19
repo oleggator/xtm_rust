@@ -77,18 +77,21 @@ fn create_fiber(
     coio_timeout: f64,
     executor: Executor<Lua>,
 ) -> tarantool::fiber::JoinHandle<'_, Result<i32, mlua::Error>> {
-    let thread_func = move |lua, ()| loop {
-        match executor.exec(lua, max_recv_retries, coio_timeout) {
-            Ok(()) | Err(ExecError::ResultChannelSendError) => continue,
-            Err(ExecError::TaskChannelRecvError) => break Ok(0),
-        }
-    };
-    let thread_func = lua.create_function(thread_func).unwrap();
+    let thread_func = lua
+        .create_function(move |lua, ()| {
+            loop {
+                match executor.exec(lua, max_recv_retries, coio_timeout) {
+                    Ok(()) | Err(ExecError::ResultChannelSendError) => continue,
+                    Err(ExecError::TaskChannelRecvError) => break Ok(0),
+                }
+            }
+        })
+        .unwrap();
     let thread = lua.create_thread(thread_func).unwrap();
 
     Fyber::spawn_deferred(
         "xtm".to_owned(),
-        move || -> std::result::Result<i32, mlua::Error> { thread.resume(()) },
+        move || -> Result<i32, mlua::Error> { thread.resume(()) },
         true,
         None,
     )

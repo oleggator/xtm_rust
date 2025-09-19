@@ -1,7 +1,7 @@
 use mlua::Lua;
 use xtm_rust::Dispatcher;
 
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::{Request, Response, Status, transport::Server};
 
 use userapi::user_api_server::{UserApi, UserApiServer};
 use userapi::{CreateUserReply, CreateUserRequest};

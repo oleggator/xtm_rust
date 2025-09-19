@@ -1,7 +1,7 @@
 mod grpc;
 
 use mlua::prelude::*;
-use xtm_rust::{run_module_with_mlua, ModuleConfig};
+use xtm_rust::{ModuleConfig, run_module_with_mlua};
 
 #[mlua::lua_module]
 fn grpc(lua: &Lua) -> LuaResult<LuaTable> {

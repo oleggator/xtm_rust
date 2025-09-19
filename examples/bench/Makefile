@@ -1,4 +1,5 @@
 build:
 	cargo build --release
 install:
-	cp ../../target/release/libbench.so $(TARANTOOL_INSTALL_LIBDIR)/bench.so
+	mkdir -p .rocks/lib/tarantool/
+	cp ../../target/release/libbench.so .rocks/lib/tarantool/bench.so

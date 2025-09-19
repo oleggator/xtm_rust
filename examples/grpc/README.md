@@ -2,7 +2,8 @@
 
 ## Build
 ```sh
-tt rocks make
+make build
+make install
 ```
 
 ## Run
