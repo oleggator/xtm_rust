@@ -12,7 +12,9 @@ space:create_index('pk', {
 })
 
 local simple = require('simple')
-simple.start({})
+simple.start({
+    fibers = 2,
+})
 
 print(yaml.encode(space:select()))
 require('os').exit()

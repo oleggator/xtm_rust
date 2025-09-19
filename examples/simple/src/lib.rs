@@ -49,6 +49,8 @@ async fn module_main(dispatcher: Dispatcher<Lua>) {
 
 #[mlua::lua_module]
 fn simple(lua: &Lua) -> LuaResult<LuaTable> {
+    tracing_subscriber::fmt::init();
+
     let exports = lua.create_table()?;
 
     exports.set(

@@ -79,12 +79,16 @@ fn create_fiber(
 ) -> tarantool::fiber::JoinHandle<'_, Result<i32, mlua::Error>> {
     let thread_func = lua
         .create_function(move |lua, ()| {
-            loop {
-                match executor.exec(lua, max_recv_retries, coio_timeout) {
-                    Ok(()) | Err(ExecError::ResultChannelSendError) => continue,
-                    Err(ExecError::TaskChannelRecvError) => break Ok(0),
-                }
-            }
+            // loop {
+            //     match executor.exec(lua, max_recv_retries, coio_timeout) {
+            //         Ok(()) | Err(ExecError::ResultChannelSendError) => continue,
+            //         Err(ExecError::TaskChannelRecvError) => break Ok(0),
+            //     }
+            // }
+            tracing::warn!("1");
+            tarantool::fiber::sleep(std::time::Duration::ZERO);
+            tracing::warn!("2");
+            Ok(0)
         })
         .unwrap();
     let thread = lua.create_thread(thread_func).unwrap();
