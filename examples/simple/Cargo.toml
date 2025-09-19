@@ -1,23 +1,17 @@
 [package]
 name = "simple"
 version = "0.1.0"
-authors = ["Oleg Utkin <o.utkin@corp.mail.ru>"]
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tarantool = { version = "4.0", default-features = false }
+tarantool = { version = "8.0.0", default-features = false }
 serde = "1.0"
-futures = "0.3"
 
 [dependencies.mlua]
-version = "0.7"
+version = "=0.8.0-beta.3"
 features = ["luajit", "module", "serialize", "vendored"]
-
-[dependencies.tokio]
-version = "1"
-features = ["net", "full"]
 
 [dependencies.xtm_rust]
 path = "../.."
