@@ -1,4 +1,5 @@
 build:
 	cargo build --release
 install:
-	cp ../../target/release/libgrpc.so $(TARANTOOL_INSTALL_LIBDIR)/grpc.so
+	mkdir -p .rocks/lib/tarantool/
+	cp ../../target/release/libgrpc.so .rocks/lib/tarantool/grpc.so
