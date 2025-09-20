@@ -54,7 +54,7 @@ impl<T> Dispatcher<T> {
         let handler_func: Task<T> = Box::new(move |arg| {
             if result_tx.is_closed() {
                 return Err(ExecError::ResultChannelSendError);
-            };
+            }
 
             let result = func(arg);
             result_tx
@@ -104,14 +104,14 @@ impl<T> Executor<T> {
                 Ok(func) => return func(arg),
                 Err(TryRecvError::Empty) => (),
                 Err(TryRecvError::Closed) => return Err(ExecError::TaskChannelRecvError),
-            };
+            }
 
             for _ in 0..max_recv_retries {
                 match self.task_rx.try_recv() {
                     Ok(func) => return func(arg),
                     Err(TryRecvError::Empty) => tarantool::fiber::sleep(Duration::new(0, 0)),
                     Err(TryRecvError::Closed) => return Err(ExecError::TaskChannelRecvError),
-                };
+                }
             }
             let _ = self.notify.notified_coio(coio_timeout);
         }

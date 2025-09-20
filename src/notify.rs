@@ -31,7 +31,7 @@ impl Notify {
 
     pub fn notified(&self) -> io::Result<u64> {
         let mut val: u64 = 0;
-        let val_ptr: *mut u64 = &mut val;
+        let val_ptr: *mut u64 = &raw mut val;
 
         let rv = unsafe { libc::read(self.0, val_ptr.cast(), mem::size_of::<u64>()) };
         if rv < 0 {
@@ -42,7 +42,7 @@ impl Notify {
     }
 
     pub fn notify(&self, val: u64) -> io::Result<()> {
-        let val_ptr: *const u64 = &val;
+        let val_ptr: *const u64 = &raw const val;
 
         let rv = unsafe { libc::write(self.0, val_ptr.cast(), mem::size_of::<u64>()) };
         if rv < 0 {
