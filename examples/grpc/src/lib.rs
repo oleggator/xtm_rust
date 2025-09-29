@@ -4,7 +4,7 @@ use mlua::prelude::*;
 use xtm_rust::{ModuleConfig, run_module_with_mlua};
 
 #[mlua::lua_module]
-fn grpc(lua: &Lua) -> LuaResult<LuaTable<'_>> {
+fn grpc(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
     exports.set(

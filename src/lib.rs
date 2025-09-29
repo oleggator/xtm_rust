@@ -39,7 +39,7 @@ where
     Func: Send + FnOnce(Dispatcher<T>) -> Fut,
     Fut: Future,
     Fut::Output: Send,
-    CreateFiber: Fn(Executor<T>) -> tarantool::fiber::JoinHandle<'a, Result<i32, mlua::Error>>,
+    CreateFiber: Fn(Executor<T>) -> tarantool::fiber::JoinHandle<'a, ()>,
 {
     let (dispatcher, executor) = channel(config.buffer)?;
 
@@ -61,37 +61,40 @@ where
                 Ok(rt.block_on(module_main(dispatcher)))
             },
         )?;
+        // yield to start fibers
         tarantool::fiber::sleep(std::time::Duration::ZERO);
 
         for fiber in fibers {
-            let _result = fiber.join().unwrap();
+            fiber.join();
         }
         module_thread.join().unwrap()
     })
     .unwrap()
 }
 
+unsafe extern "C" {
+    unsafe fn luaT_state() -> *mut mlua::lua_State;
+}
+
+unsafe fn mlua_state<'a>() -> &'a mlua::Lua {
+    unsafe { mlua::Lua::get_or_init_from_ptr(luaT_state().cast()) }
+}
+
 fn create_fiber(
-    lua: &Lua,
+    _lua: &Lua,
     max_recv_retries: usize,
     coio_timeout: f64,
     executor: Executor<Lua>,
-) -> tarantool::fiber::JoinHandle<'_, Result<i32, mlua::Error>> {
-    let thread_func = move |lua, ()| loop {
-        match executor.exec(lua, max_recv_retries, coio_timeout) {
-            Ok(()) | Err(ExecError::ResultChannelSendError) => continue,
-            Err(ExecError::TaskChannelRecvError) => break Ok(0),
+) -> tarantool::fiber::JoinHandle<'static, ()> {
+    let func = move || {
+        let lua = unsafe { mlua_state() };
+        loop {
+            match executor.exec(lua, max_recv_retries, coio_timeout) {
+                Ok(()) | Err(ExecError::ResultChannelSendError) => continue,
+                Err(ExecError::TaskChannelRecvError) => break,
+            }
         }
     };
-    let thread_func = lua.create_function(thread_func).unwrap();
-    let thread = lua.create_thread(thread_func).unwrap();
 
-    Fyber::spawn_deferred(
-        "xtm".to_owned(),
-        move || -> std::result::Result<i32, mlua::Error> { thread.resume(()) },
-        true,
-        None,
-    )
-    .unwrap()
-    .unwrap()
+    Fyber::spawn_lua("xtm".to_owned(), func, None).unwrap()
 }

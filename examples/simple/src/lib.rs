@@ -48,7 +48,7 @@ async fn module_main(dispatcher: Dispatcher<Lua>) {
 }
 
 #[mlua::lua_module]
-fn simple(lua: &Lua) -> LuaResult<LuaTable<'_>> {
+fn simple(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
     exports.set(

@@ -13,11 +13,9 @@ libc = "0.2"
 crossbeam-utils = "0.8"
 serde = "1.0"
 
-luajit-src = "=210.5.12"
-
 [dependencies.mlua]
-version = "=0.8.0-beta.3"
-features = ["luajit", "serialize", "vendored"]
+version = "0.11.3"
+features = ["luajit"]
 
 [dependencies.tokio]
 version = "1"

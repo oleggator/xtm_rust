@@ -12,8 +12,8 @@ tarantool = { version = "8.0.0", default-features = false }
 uuid = { version = "1.18", features = ["serde", "v4"] }
 
 [dependencies.mlua]
-version = "=0.8.0-beta.3"
-features = ["luajit", "module", "serialize", "vendored"]
+version = "0.11.3"
+features = ["luajit", "serialize", "module"]
 
 [dependencies.xtm_rust]
 path = "../.."
